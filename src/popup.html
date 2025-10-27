@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TS_switcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>TS_switcher</h2>
+        </div>
+        
+        <div class="status" id="status">
+            <div class="status-indicator"></div>
+            <span id="current-site">Загрузка...</span>
+        </div>
+        
+        <div class="controls">
+            <div id="main-site-controls" class="control-section hidden">
+                <h3>Переключение на зеркала:</h3>
+                <button id="switch-to-pecheny-me" class="switch-btn">
+                    <span class="btn-icon">📡</span>
+                    <span class="btn-text">rating.pecheny.me</span>
+                </button>
+                <button id="switch-to-pecheny-kz" class="switch-btn">
+                    <span class="btn-icon">📡</span>
+                    <span class="btn-text">rating.pecheny.kz</span>
+                </button>
+            </div>
+            
+            <div id="mirror-site-controls" class="control-section hidden">
+                <h3>Переключение на:</h3>
+                <button id="switch-to-original" class="switch-btn">
+                    <span class="btn-icon">🏠</span>
+                    <span class="btn-text">rating.chgk.info (основной)</span>
+                </button>
+                <button id="switch-to-other-mirror" class="switch-btn">
+                    <span class="btn-icon">📡</span>
+                    <span class="btn-text" id="other-mirror-text">Другое зеркало</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <button id="copy-url" class="copy-btn">
+                <span class="btn-icon">📋</span>
+                <span>Копировать ссылку оригинала</span>
+            </button>
+            <div id="copy-message" class="copy-message hidden">Ссылка скопирована!</div>
+        </div>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,25 @@
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Временные файлы
+*.tmp
+*.log
+
+# Build files
+*.pem
+firefox_temp/
+TS_switcher-*.zip
+TS_switcher-*.crx
+dist/
