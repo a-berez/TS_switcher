@@ -15,7 +15,7 @@
 ### Chrome / Edge / Opera
 
 1. Перейдите в раздел [Releases](https://github.com/a-berez/TS_switcher/releases)
-2. Скачайте файл `TS_switcher-0.2-chromium.crx`
+2. Скачайте файл `TS_switcher-0.2.1-chromium.crx`
 3. Откройте:
    - Chrome: `chrome://extensions/`
    - Edge: `edge://extensions/`
@@ -27,11 +27,11 @@
 ### Firefox
 
 1. Перейдите в раздел [Releases](https://github.com/a-berez/TS_switcher/releases)
-2. Скачайте файл `TS_switcher-0.2-firefox.zip`
+2. Скачайте файл `TS_switcher-0.2.1-firefox.zip`
 3. Откройте Firefox и перейдите в `about:debugging`
 4. Нажмите "Этот Firefox"
 5. Нажмите "Загрузить временное дополнение"
-6. Выберите `TS_switcher-0.2-firefox.zip`
+6. Выберите `TS_switcher-0.2.1-firefox.zip`
 
 ### Поддерживаемые браузеры
 
@@ -73,6 +73,12 @@
 - Весь код открыт для проверки
 
 ## История изменений
+
+### Версия 0.2.1
+
+- **Улучшения**
+  - Добавлена возможность переключения на сайт рейтинга с главной страницы основного сайта и зеркал
+  - Улучшена обработка ошибок при конвертации путей — теперь переходит на главную страницу вместо ошибки
 
 ### Версия 0.2
 

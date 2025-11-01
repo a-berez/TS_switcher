@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TS_switcher",
-  "version": "0.2",
+  "version": "0.2.1",
   "description": "Переключение между Турнирным сайтом и его зеркалами и сайтом Рейтинга",
   "permissions": [
     "activeTab",

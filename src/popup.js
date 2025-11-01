@@ -207,33 +207,37 @@ function showRelevantControls() {
     // Определяем, является ли текущая страница страницей игрока/турнира/команды
     const pageType = getPageType(currentPath);
     const isSupportedPage = pageType !== null;
+    // Определяем, является ли текущая страница главной
+    const isHome = isHomePage(currentPath);
+    // Показываем кнопку рейтинга на главной или на поддерживаемых страницах
+    const canShowRatingButton = isHome || isSupportedPage;
     
     if (currentHost === SITES.MAIN) {
-        // На основном сайте: обе кнопки зеркал + кнопка сайта рейтинга (если поддерживается)
+        // На основном сайте: обе кнопки зеркал + кнопка сайта рейтинга (если главная или поддерживаемая страница)
         mainControls.classList.remove('hidden');
-        if (isSupportedPage) {
+        if (canShowRatingButton) {
             ratingGGControl.classList.remove('hidden');
         }
     } else if (currentHost === SITES.MIRROR_ME) {
-        // На зеркале .me: основной сайт + одно зеркало (.kz) + кнопка сайта рейтинга (если поддерживается)
+        // На зеркале .me: основной сайт + одно зеркало (.kz) + кнопка сайта рейтинга (если главная или поддерживаемая страница)
         mirrorControls.classList.remove('hidden');
         otherMirrorBtn.classList.remove('hidden');
         otherMirrorText.textContent = 'rating.pecheny.kz';
         // Гарантируем, что кнопки для rating.chgk.gg скрыты
         pechenyMeFromGG.classList.add('hidden');
         pechenyKzFromGG.classList.add('hidden');
-        if (isSupportedPage) {
+        if (canShowRatingButton) {
             ratingGGControl.classList.remove('hidden');
         }
     } else if (currentHost === SITES.MIRROR_KZ) {
-        // На зеркале .kz: основной сайт + одно зеркало (.me) + кнопка сайта рейтинга (если поддерживается)
+        // На зеркале .kz: основной сайт + одно зеркало (.me) + кнопка сайта рейтинга (если главная или поддерживаемая страница)
         mirrorControls.classList.remove('hidden');
         otherMirrorBtn.classList.remove('hidden');
         otherMirrorText.textContent = 'rating.pecheny.me';
         // Гарантируем, что кнопки для rating.chgk.gg скрыты
         pechenyMeFromGG.classList.add('hidden');
         pechenyKzFromGG.classList.add('hidden');
-        if (isSupportedPage) {
+        if (canShowRatingButton) {
             ratingGGControl.classList.remove('hidden');
         }
     } else if (currentHost === SITES.RATING_GG) {
