@@ -16,7 +16,7 @@ Thumbs.db
 # Временные файлы
 *.tmp
 *.log
-.csv
+*.csv
 
 # Build files
 *.pem
