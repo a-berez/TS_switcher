@@ -3,7 +3,8 @@
 const SUPPORTED_SITES = [
     'rating.chgk.info',
     'rating.pecheny.me',
-    'rating.pecheny.kz'
+    'rating.pecheny.kz',
+    'rating.chgk.gg'
 ];
 
 const ICON_PATHS = {
@@ -12,6 +13,11 @@ const ICON_PATHS = {
         48: 'icons/icon48.png',
         128: 'icons/icon128.png'
     },
+    normal_rating: {
+        16: 'icons/icon16_rating.png',
+        48: 'icons/icon48_rating.png',
+        128: 'icons/icon128_rating.png'
+    },
     disabled: {
         16: 'icons/icon16_disabled.png',
         48: 'icons/icon48_disabled.png',
@@ -19,9 +25,16 @@ const ICON_PATHS = {
     }
 };
 
-async function setIcon(tabId, enabled) {
+async function setIcon(tabId, enabled, isRatingSite = false) {
     try {
-        const paths = enabled ? ICON_PATHS.normal : ICON_PATHS.disabled;
+        let paths;
+        if (!enabled) {
+            paths = ICON_PATHS.disabled;
+        } else if (isRatingSite) {
+            paths = ICON_PATHS.normal_rating;
+        } else {
+            paths = ICON_PATHS.normal;
+        }
         if (browser.browserAction && browser.browserAction.setIcon) {
             await browser.browserAction.setIcon({ tabId, path: paths });
         } else if (browser.action && browser.action.setIcon) {
@@ -41,12 +54,22 @@ function isSupportedSite(url) {
     }
 }
 
+function isRatingSite(url) {
+    try {
+        const urlObj = new URL(url);
+        return urlObj.hostname === 'rating.chgk.gg';
+    } catch {
+        return false;
+    }
+}
+
 async function updateIcon(tabId) {
     try {
         const tab = await browser.tabs.get(tabId);
         if (tab && tab.url && tab.url.startsWith('http')) {
             const enabled = isSupportedSite(tab.url);
-            await setIcon(tabId, enabled);
+            const isRating = isRatingSite(tab.url);
+            await setIcon(tabId, enabled, isRating);
         }
     } catch (error) {
         console.error('Error updating icon:', error);

@@ -7,7 +7,8 @@
     const supportedSites = [
         'rating.chgk.info',
         'rating.pecheny.me',
-        'rating.pecheny.kz'
+        'rating.pecheny.kz',
+        'rating.chgk.gg'
     ];
     
     if (!supportedSites.includes(hostname)) {

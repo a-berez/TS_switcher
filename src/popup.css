@@ -60,6 +60,13 @@ body {
     display: none;
 }
 
+/* Скрытие отдельных элементов с классом hidden */
+.hidden,
+.switch-btn.hidden,
+button.hidden {
+    display: none !important;
+}
+
 h3 {
     font-size: 11px;
     color: #4040c0;
@@ -99,6 +106,16 @@ h3 {
 
 .switch-btn .btn-text {
     font-weight: 500;
+}
+
+/* Стиль для кнопки переключения на rating.chgk.gg */
+.switch-btn.rating-gg-btn {
+    border-color: #2196f3;
+}
+
+.switch-btn.rating-gg-btn:hover {
+    background: #e3f2fd;
+    border-color: #1976d2;
 }
 
 .footer {
@@ -188,5 +205,52 @@ body.disabled-site .copy-btn:hover {
 
 body.disabled-site .copy-message {
     background: #999;
+}
+
+/* Стили для сайта рейтинга rating.chgk.gg */
+body.rating-gg-site {
+    background: #ffffff;
+}
+
+body.rating-gg-site .container {
+    background: #ffffff;
+}
+
+body.rating-gg-site .header {
+    background: #dbeafe;
+    color: #000000;
+}
+
+body.rating-gg-site .status {
+    background: #ffffff;
+    border-bottom-color: #dbeafe;
+}
+
+body.rating-gg-site .footer {
+    background: #ffffff;
+    border-top-color: #dbeafe;
+}
+
+body.rating-gg-site .copy-btn {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+body.rating-gg-site .copy-btn:hover {
+    background: #bfdbfe;
+}
+
+body.rating-gg-site .copy-btn:active {
+    background: #dbeafe;
+}
+
+body.rating-gg-site .copy-message {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+body.rating-gg-site .switch-btn:hover {
+    background: #eff6ff;
+    border-color: #dbeafe;
 }
 

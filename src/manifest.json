@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TS_switcher",
-  "version": "0.1",
-  "description": "Переключение между основным сайтом rating.chgk.info и зеркалами rating.pecheny.me и rating.pecheny.kz",
+  "version": "0.2",
+  "description": "Переключение между Турнирным сайтом и его зеркалами и сайтом Рейтинга",
   "permissions": [
     "activeTab",
     "scripting",
@@ -11,7 +11,8 @@
   "host_permissions": [
     "https://rating.chgk.info/*",
     "https://rating.pecheny.me/*",
-    "https://rating.pecheny.kz/*"
+    "https://rating.pecheny.kz/*",
+    "https://rating.chgk.gg/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -26,7 +27,8 @@
       "matches": [
         "https://rating.chgk.info/*",
         "https://rating.pecheny.me/*",
-        "https://rating.pecheny.kz/*"
+        "https://rating.pecheny.kz/*",
+        "https://rating.chgk.gg/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
