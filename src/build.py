@@ -15,7 +15,7 @@ try:
 except ImportError:
     HAS_PIL = False
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 
 def resize_icons_to_spec(icons_dir):
     """Приводит иконки к требуемым размерам (16, 48, 128) для AMO."""
