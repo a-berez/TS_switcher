@@ -9,7 +9,43 @@ import shutil
 import zipfile
 from pathlib import Path
 
-VERSION = "0.3.0"
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
+VERSION = "0.3.1"
+
+def resize_icons_to_spec(icons_dir):
+    """Приводит иконки к требуемым размерам (16, 48, 128) для AMO."""
+    if not HAS_PIL:
+        print("Warning: PIL not installed, skipping icon resize")
+        return
+    for filename in os.listdir(icons_dir):
+        if not filename.endswith(".png"):
+            continue
+        target = None
+        if "icon16" in filename:
+            target = 16
+        elif "icon48" in filename:
+            target = 48
+        elif "icon128" in filename:
+            target = 128
+        if not target:
+            continue
+        try:
+            path = os.path.join(icons_dir, filename)
+            img = Image.open(path)
+            if img.mode != "RGBA":
+                img = img.convert("RGBA")
+            w, h = img.size
+            if w != target or h != target:
+                img = img.resize((target, target), Image.Resampling.LANCZOS)
+                img.save(path, "PNG")
+                print(f"  Resized {filename} to {target}x{target}")
+        except Exception as e:
+            print(f"  Warning: could not resize {filename}: {e}")
 
 def build_chromium():
     """Build Chromium version (Chrome, Edge, Opera)"""
@@ -51,15 +87,21 @@ def build_firefox():
     
     try:
         # Copy and rename files
-        shutil.copy("manifest-firefox.json", os.path.join(temp_dir, "manifest.json"))
+        # Манифест должен ссылаться на background.js (файл переименован при сборке)
+        with open("manifest-firefox.json", "r", encoding="utf-8") as f:
+            manifest_content = f.read().replace("background-firefox.js", "background.js")
+        with open(os.path.join(temp_dir, "manifest.json"), "w", encoding="utf-8") as f:
+            f.write(manifest_content)
         shutil.copy("background-firefox.js", os.path.join(temp_dir, "background.js"))
         shutil.copy("popup.html", temp_dir)
         shutil.copy("popup.css", temp_dir)
         shutil.copy("popup.js", temp_dir)
         shutil.copy("content.js", temp_dir)
         shutil.copy("LICENSE", temp_dir)
-        shutil.copytree("icons", os.path.join(temp_dir, "icons"))
-        
+        icons_dest = os.path.join(temp_dir, "icons")
+        shutil.copytree("icons", icons_dest)
+        resize_icons_to_spec(icons_dest)
+
         # Create ZIP
         with zipfile.ZipFile(f"TS_switcher-{VERSION}-firefox.zip", 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(temp_dir):

@@ -26,23 +26,8 @@ const ICON_PATHS = {
 };
 
 async function setIcon(tabId, enabled, isRatingSite = false) {
-    try {
-        let paths;
-        if (!enabled) {
-            paths = ICON_PATHS.disabled;
-        } else if (isRatingSite) {
-            paths = ICON_PATHS.normal_rating;
-        } else {
-            paths = ICON_PATHS.normal;
-        }
-        if (browser.browserAction && browser.browserAction.setIcon) {
-            await browser.browserAction.setIcon({ tabId, path: paths });
-        } else if (browser.action && browser.action.setIcon) {
-            await browser.action.setIcon({ tabId, path: paths });
-        }
-    } catch (error) {
-        console.error('Error setting icon:', error);
-    }
+    // Firefox не поддерживает action.setIcon / browserAction.setIcon — пропускаем без ошибки
+    return;
 }
 
 function isSupportedSite(url) {

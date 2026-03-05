@@ -15,7 +15,7 @@
 ### Chrome / Edge / Opera
 
 1. Перейдите в раздел [Releases](https://github.com/a-berez/TS_switcher/releases)
-2. Скачайте файл `TS_switcher-0.3.0-chromium.crx`
+2. Скачайте файл `TS_switcher-0.3.1-chromium.crx`
 3. Откройте:
    - Chrome: `chrome://extensions/`
    - Edge: `edge://extensions/`
@@ -27,11 +27,11 @@
 ### Firefox
 
 1. Перейдите в раздел [Releases](https://github.com/a-berez/TS_switcher/releases)
-2. Скачайте файл `TS_switcher-0.3.0-firefox.zip`
+2. Скачайте файл `TS_switcher-0.3.1-firefox.zip`
 3. Откройте Firefox и перейдите в `about:debugging`
 4. Нажмите "Этот Firefox"
 5. Нажмите "Загрузить временное дополнение"
-6. Выберите `TS_switcher-0.3.0-firefox.zip`
+6. Выберите `TS_switcher-0.3.1-firefox.zip`
 
 ### Поддерживаемые браузеры
 
@@ -74,7 +74,7 @@
 
 ## История изменений
 
-### Версия 0.3.0
+### Версия 0.3.1
 
 - **Поддержка пути `/players/` на Турнирном сайте**
   - Исправлено: переключение на сайт Рейтинга теперь появляется на страницах игроков (`/players/<id>`)
