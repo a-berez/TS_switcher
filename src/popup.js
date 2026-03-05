@@ -24,14 +24,17 @@ const PAGE_TYPES = {
 // Определяет тип страницы по пути
 function getPageType(path) {
     // Паттерны для rating.chgk.info и зеркал
-    const infoPattern = /^\/(player|tournament|teams)\/(\d+)/;
+    // Поддерживаем как старые пути (/player/), так и новые (/players/)
+    const infoPattern = /^\/(player|players|tournament|teams)\/(\d+)/;
     // Паттерны для rating.chgk.gg
     const ggPattern = /^\/b\/(player|tournament|team)\/(\d+)/;
     
     const infoMatch = path.match(infoPattern);
     if (infoMatch) {
         const type = infoMatch[1];
-        return type === 'teams' ? PAGE_TYPES.TEAM : type;
+        if (type === 'teams') return PAGE_TYPES.TEAM;
+        if (type === 'players') return PAGE_TYPES.PLAYER;
+        return type;
     }
     
     const ggMatch = path.match(ggPattern);
@@ -55,15 +58,17 @@ function convertPathToGG(path) {
     const pageType = getPageType(path);
     if (!pageType) return null;
     
-    const match = path.match(/\/(player|tournament|teams)\/(\d+)/);
+    // Учитываем как /player/, так и /players/
+    const match = path.match(/\/(player|players|tournament|teams)\/(\d+)/);
     if (!match) return null;
     
     const [, type, id] = match;
-    const ggType = type === 'teams' ? 'team' : type;
+    // players → player, teams → team, остальное (player, tournament) без изменений
+    const ggType = type === 'teams' ? 'team' : (type === 'players' ? 'player' : type);
     
     // Удаляем query параметры и хэш для формирования базового пути
     const basePath = path.split('?')[0].split('#')[0];
-    const baseMatch = basePath.match(/^\/(player|tournament|teams)\/(\d+)/);
+    const baseMatch = basePath.match(/^\/(player|players|tournament|teams)\/(\d+)/);
     
     if (baseMatch) {
         return `/b/${ggType}/${id}/`;
@@ -81,7 +86,16 @@ function convertPathFromGG(path) {
     if (!match) return null;
     
     const [, type, id] = match;
-    const infoType = type === 'team' ? 'teams' : type;
+    let infoType;
+    if (type === 'team') {
+        // На Турнирном сайте путь для игроков/команд имеет вид /players/<id> или /teams/<id>
+        infoType = 'teams';
+    } else if (type === 'player') {
+        // Явно маппим player → players в соответствии с текущей структурой Турнирного сайта
+        infoType = 'players';
+    } else {
+        infoType = type;
+    }
     
     // Удаляем query параметры и хэш для формирования базового пути
     const basePath = path.split('?')[0].split('#')[0];
@@ -270,6 +284,8 @@ function setupEventListeners() {
     document.getElementById('switch-to-pecheny-kz-from-gg').addEventListener('click', () => switchTo(SITES.MIRROR_KZ));
     document.getElementById('switch-to-rating-gg').addEventListener('click', () => switchTo(SITES.RATING_GG, true));
     document.getElementById('copy-url').addEventListener('click', copyOriginalUrl);
+    document.getElementById('copy-url-me').addEventListener('click', () => copyMirrorUrl(SITES.MIRROR_ME));
+    document.getElementById('copy-url-kz').addEventListener('click', () => copyMirrorUrl(SITES.MIRROR_KZ));
 }
 
 async function switchTo(host, needConversion = false) {
@@ -317,17 +333,42 @@ async function switchTo(host, needConversion = false) {
 }
 
 function disableCopyButton() {
-    const copyBtn = document.getElementById('copy-url');
-    if (copyBtn) {
-        copyBtn.disabled = true;
-        copyBtn.classList.add('disabled');
-        copyBtn.textContent = 'Функция недоступна';
+    const buttons = [
+        document.getElementById('copy-url'),
+        document.getElementById('copy-url-me'),
+        document.getElementById('copy-url-kz')
+    ];
+
+    buttons.forEach((btn) => {
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.add('disabled');
+        }
+    });
+
+    if (buttons[0]) {
+        buttons[0].textContent = 'Функция недоступна';
     }
 }
 
 async function copyOriginalUrl() {
     try {
-        const originalUrl = `https://${SITES.MAIN}${currentPath}`;
+        let originalPath = currentPath;
+
+        // Для страниц рейтинга конвертируем путь так же, как при переключении на основной сайт
+        if (currentHost === SITES.RATING_GG) {
+            const isHome = isHomePage(currentPath);
+            if (isHome) {
+                // Главная рейтинга → главная Турнирного сайта
+                originalPath = '/';
+            } else {
+                // Страницы игроков/турниров/команд: пробуем сконвертировать
+                const convertedPath = convertPathFromGG(currentPath);
+                originalPath = convertedPath || '/';
+            }
+        }
+
+        const originalUrl = `https://${SITES.MAIN}${originalPath}`;
         await navigator.clipboard.writeText(originalUrl);
         
         const copyMessage = document.getElementById('copy-message');
@@ -338,6 +379,35 @@ async function copyOriginalUrl() {
         }, 2000);
     } catch (error) {
         console.error('Copy error:', error);
+        alert('Не удалось скопировать ссылку');
+    }
+}
+
+async function copyMirrorUrl(targetHost) {
+    try {
+        let mirrorPath = currentPath;
+
+        if (currentHost === SITES.RATING_GG) {
+            const isHome = isHomePage(currentPath);
+            if (isHome) {
+                mirrorPath = '/';
+            } else {
+                const convertedPath = convertPathFromGG(currentPath);
+                mirrorPath = convertedPath || '/';
+            }
+        }
+
+        const mirrorUrl = `https://${targetHost}${mirrorPath}`;
+        await navigator.clipboard.writeText(mirrorUrl);
+
+        const copyMessage = document.getElementById('copy-message');
+        copyMessage.classList.remove('hidden');
+
+        setTimeout(() => {
+            copyMessage.classList.add('hidden');
+        }, 2000);
+    } catch (error) {
+        console.error('Copy mirror error:', error);
         alert('Не удалось скопировать ссылку');
     }
 }

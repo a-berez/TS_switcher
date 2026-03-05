@@ -124,6 +124,12 @@ h3 {
     background: #f4f0cb;
 }
 
+.copy-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
 .copy-btn {
     width: 100%;
     padding: 8px 12px;
@@ -139,6 +145,12 @@ h3 {
     justify-content: center;
     gap: 6px;
     transition: all 0.2s;
+}
+
+.copy-btn-secondary {
+    flex: 1;
+    font-size: 10px;
+    padding: 6px 8px;
 }
 
 .copy-btn:hover {
