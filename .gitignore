@@ -16,7 +16,6 @@ Thumbs.db
 # Временные файлы
 *.tmp
 *.log
-*.csv
 
 # Build files
 *.pem
@@ -24,3 +23,5 @@ firefox_temp/
 TS_switcher-*.zip
 TS_switcher-*.crx
 dist/
+*.csv
+*.crx
