@@ -25,3 +25,4 @@ TS_switcher-*.crx
 dist/
 *.csv
 *.crx
+create-crx.md

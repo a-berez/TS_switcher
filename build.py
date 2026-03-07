@@ -2,6 +2,9 @@
 """
 Build script for TS_switcher extension
 Creates ZIP archives for Chromium (Chrome/Edge/Opera) and Firefox
+
+This version is intended to be run from the repository root.
+Source files for the extension live in the `src` directory.
 """
 
 import os
@@ -16,6 +19,10 @@ except ImportError:
     HAS_PIL = False
 
 VERSION = "0.3.2"
+
+BASE_DIR = Path(__file__).resolve().parent
+SRC_DIR = BASE_DIR / "src"
+
 
 def resize_icons_to_spec(icons_dir):
     """Приводит иконки к требуемым размерам (16, 48, 128) для AMO."""
@@ -47,10 +54,11 @@ def resize_icons_to_spec(icons_dir):
         except Exception as e:
             print(f"  Warning: could not resize {filename}: {e}")
 
+
 def build_chromium():
     """Build Chromium version (Chrome, Edge, Opera)"""
     print("Creating Chromium version...")
-    
+
     files = [
         "manifest.json",
         "popup.html",
@@ -59,83 +67,91 @@ def build_chromium():
         "content.js",
         "background.js",
         "LICENSE",
-        "icons"
+        "icons",
     ]
-    
-    versioned_name = f"TS_switcher-{VERSION}-chromium.zip"
-    latest_name = "TS_switcher-chromium.zip"
 
-    with zipfile.ZipFile(versioned_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    versioned_name = BASE_DIR / f"TS_switcher-{VERSION}-chromium.zip"
+    latest_name = BASE_DIR / "TS_switcher-chromium.zip"
+
+    with zipfile.ZipFile(versioned_name, "w", zipfile.ZIP_DEFLATED) as zipf:
         for item in files:
-            if os.path.isfile(item):
-                zipf.write(item)
-            elif os.path.isdir(item):
-                for root, dirs, files in os.walk(item):
+            src_path = SRC_DIR / item
+            if src_path.is_file():
+                arcname = item
+                zipf.write(src_path, arcname)
+            elif src_path.is_dir():
+                for root, dirs, files in os.walk(src_path):
                     for file in files:
-                        file_path = os.path.join(root, file)
-                        arcname = file_path
+                        file_path = Path(root) / file
+                        arcname = os.path.relpath(file_path, SRC_DIR)
                         zipf.write(file_path, arcname)
-    
-    print(f"✓ Created {versioned_name}")
+
+    print(f"✓ Created {versioned_name.name}")
 
     shutil.copyfile(versioned_name, latest_name)
-    print(f"✓ Created {latest_name}")
+    print(f"✓ Created {latest_name.name}")
+
 
 def build_firefox():
     """Build Firefox version with manifest V2"""
     print("Creating Firefox version...")
-    
-    # Create temporary directory
-    temp_dir = "firefox_temp"
-    if os.path.exists(temp_dir):
+
+    # Create temporary directory in repo root
+    temp_dir = BASE_DIR / "firefox_temp"
+    if temp_dir.exists():
         shutil.rmtree(temp_dir)
-    os.makedirs(temp_dir)
-    
+    temp_dir.mkdir()
+
     try:
         # Copy and rename files
         # Манифест должен ссылаться на background.js (файл переименован при сборке)
-        with open("manifest-firefox.json", "r", encoding="utf-8") as f:
+        manifest_src = SRC_DIR / "manifest-firefox.json"
+        with open(manifest_src, "r", encoding="utf-8") as f:
             manifest_content = f.read().replace("background-firefox.js", "background.js")
-        with open(os.path.join(temp_dir, "manifest.json"), "w", encoding="utf-8") as f:
+        manifest_dest = temp_dir / "manifest.json"
+        with open(manifest_dest, "w", encoding="utf-8") as f:
             f.write(manifest_content)
-        shutil.copy("background-firefox.js", os.path.join(temp_dir, "background.js"))
-        shutil.copy("popup.html", temp_dir)
-        shutil.copy("popup.css", temp_dir)
-        shutil.copy("popup.js", temp_dir)
-        shutil.copy("content.js", temp_dir)
-        shutil.copy("LICENSE", temp_dir)
-        icons_dest = os.path.join(temp_dir, "icons")
-        shutil.copytree("icons", icons_dest)
+
+        shutil.copy(SRC_DIR / "background-firefox.js", temp_dir / "background.js")
+        shutil.copy(SRC_DIR / "popup.html", temp_dir)
+        shutil.copy(SRC_DIR / "popup.css", temp_dir)
+        shutil.copy(SRC_DIR / "popup.js", temp_dir)
+        shutil.copy(SRC_DIR / "content.js", temp_dir)
+        shutil.copy(SRC_DIR / "LICENSE", temp_dir)
+
+        icons_src = SRC_DIR / "icons"
+        icons_dest = temp_dir / "icons"
+        shutil.copytree(icons_src, icons_dest)
         resize_icons_to_spec(icons_dest)
 
-        versioned_name = f"TS_switcher-{VERSION}-firefox.zip"
-        latest_name = "TS_switcher-firefox.zip"
+        versioned_name = BASE_DIR / f"TS_switcher-{VERSION}-firefox.zip"
+        latest_name = BASE_DIR / "TS_switcher-firefox.zip"
 
         # Create ZIP
-        with zipfile.ZipFile(versioned_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        with zipfile.ZipFile(versioned_name, "w", zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(temp_dir):
                 for file in files:
-                    file_path = os.path.join(root, file)
+                    file_path = Path(root) / file
                     arcname = os.path.relpath(file_path, temp_dir)
                     zipf.write(file_path, arcname)
-        
-        print(f"✓ Created {versioned_name}")
+
+        print(f"✓ Created {versioned_name.name}")
 
         shutil.copyfile(versioned_name, latest_name)
-        print(f"✓ Created {latest_name}")
-        
+        print(f"✓ Created {latest_name.name}")
+
     finally:
         # Cleanup
-        if os.path.exists(temp_dir):
+        if temp_dir.exists():
             shutil.rmtree(temp_dir)
+
 
 def main():
     print("Building TS_switcher extension...")
     print()
-    
-    # Remove old archives from parent directory
-    parent_dir = Path('..')
-    for old_zip in parent_dir.glob('TS_switcher-*.zip'):
+
+    # Remove old archives from repository root
+    for old_zip in BASE_DIR.glob("TS_switcher-*.zip"):
         try:
             os.remove(old_zip)
             print(f"Removed old {old_zip}")
@@ -144,22 +160,16 @@ def main():
         except OSError as e:
             print(f"Warning: Could not remove {old_zip}: {e}")
     print()
-    
+
     # Build Chromium version
     build_chromium()
     print()
-    
+
     # Build Firefox version
     build_firefox()
     print()
-    
-    # Move to parent directory
-    for zip_file in Path('.').glob('TS_switcher-*.zip'):
-        shutil.move(str(zip_file), parent_dir / zip_file.name)
-        print(f"Moved {zip_file} to parent directory")
-    
-    print()
-    print("Build complete! Files created:")
+
+    print("Build complete! Files created in repository root:")
     print(f"  - TS_switcher-{VERSION}-chromium.zip (Chrome, Edge, Opera, versioned)")
     print("  - TS_switcher-chromium.zip (Chrome, Edge, Opera, latest)")
     print(f"  - TS_switcher-{VERSION}-firefox.zip (Firefox, versioned)")
@@ -167,8 +177,9 @@ def main():
     print()
     print("Next steps:")
     print("  1. Test the extension in each browser")
-    print("  2. Create .crx file for Chrome using chrome://extensions/")
-    print("  3. Upload to GitHub Releases")
+    print("  2. Upload ZIP files to GitHub Releases")
+
 
 if __name__ == "__main__":
     main()
+
