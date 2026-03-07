@@ -12,26 +12,31 @@
 
 ## Установка
 
-### Chrome / Edge / Opera
+### Из магазинов расширений
 
-1. Перейдите в раздел [Releases](https://github.com/a-berez/TS_switcher/releases)
-2. Скачайте файл `TS_switcher-0.3.2-chromium.crx`
+- **Firefox**: на модерации
+- **Chrome / Edge / Opera**: на модерации
+
+### Установка вручную
+
+#### Chrome / Edge / Opera
+
+1. Перейдите в раздел [Releases](https://github.com/a-berez/TS_switcher/releases) или скачайте [TS_switcher-chromium.zip](https://github.com/a-berez/TS_switcher/releases/latest/download/TS_switcher-chromium.zip) (последняя версия)
+2. Распакуйте архив
 3. Откройте:
    - Chrome: `chrome://extensions/`
    - Edge: `edge://extensions/`
    - Opera: `opera://extensions/`
 4. Включите "Режим разработчика" в правом верхнем углу
-5. Перетащите crx-файл в окно браузера
-6. Выберите распакованную папку
+5. Нажмите "Загрузить распакованное расширение" и выберите распакованную папку
 
-### Firefox
+#### Firefox
 
-1. Перейдите в раздел [Releases](https://github.com/a-berez/TS_switcher/releases)
-2. Скачайте файл `TS_switcher-0.3.2-firefox.zip`
-3. Откройте Firefox и перейдите в `about:debugging`
-4. Нажмите "Этот Firefox"
-5. Нажмите "Загрузить временное дополнение"
-6. Выберите `TS_switcher-0.3.2-firefox.zip`
+1. Перейдите в раздел [Releases](https://github.com/a-berez/TS_switcher/releases) или скачайте [TS_switcher-firefox.zip](https://github.com/a-berez/TS_switcher/releases/latest/download/TS_switcher-firefox.zip) (последняя версия)
+2. Откройте Firefox и перейдите в `about:debugging`
+3. Нажмите "Этот Firefox"
+4. Нажмите "Загрузить временное дополнение"
+5. Выберите скачанный zip-файл
 
 ### Поддерживаемые браузеры
 

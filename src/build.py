@@ -62,7 +62,10 @@ def build_chromium():
         "icons"
     ]
     
-    with zipfile.ZipFile(f"TS_switcher-{VERSION}-chromium.zip", 'w', zipfile.ZIP_DEFLATED) as zipf:
+    versioned_name = f"TS_switcher-{VERSION}-chromium.zip"
+    latest_name = "TS_switcher-chromium.zip"
+
+    with zipfile.ZipFile(versioned_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for item in files:
             if os.path.isfile(item):
                 zipf.write(item)
@@ -73,7 +76,10 @@ def build_chromium():
                         arcname = file_path
                         zipf.write(file_path, arcname)
     
-    print(f"✓ Created TS_switcher-{VERSION}-chromium.zip")
+    print(f"✓ Created {versioned_name}")
+
+    shutil.copyfile(versioned_name, latest_name)
+    print(f"✓ Created {latest_name}")
 
 def build_firefox():
     """Build Firefox version with manifest V2"""
@@ -102,15 +108,21 @@ def build_firefox():
         shutil.copytree("icons", icons_dest)
         resize_icons_to_spec(icons_dest)
 
+        versioned_name = f"TS_switcher-{VERSION}-firefox.zip"
+        latest_name = "TS_switcher-firefox.zip"
+
         # Create ZIP
-        with zipfile.ZipFile(f"TS_switcher-{VERSION}-firefox.zip", 'w', zipfile.ZIP_DEFLATED) as zipf:
+        with zipfile.ZipFile(versioned_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(temp_dir):
                 for file in files:
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, temp_dir)
                     zipf.write(file_path, arcname)
         
-        print(f"✓ Created TS_switcher-{VERSION}-firefox.zip")
+        print(f"✓ Created {versioned_name}")
+
+        shutil.copyfile(versioned_name, latest_name)
+        print(f"✓ Created {latest_name}")
         
     finally:
         # Cleanup
@@ -148,8 +160,10 @@ def main():
     
     print()
     print("Build complete! Files created:")
-    print(f"  - TS_switcher-{VERSION}-chromium.zip (Chrome, Edge, Opera)")
-    print(f"  - TS_switcher-{VERSION}-firefox.zip (Firefox)")
+    print(f"  - TS_switcher-{VERSION}-chromium.zip (Chrome, Edge, Opera, versioned)")
+    print("  - TS_switcher-chromium.zip (Chrome, Edge, Opera, latest)")
+    print(f"  - TS_switcher-{VERSION}-firefox.zip (Firefox, versioned)")
+    print("  - TS_switcher-firefox.zip (Firefox, latest)")
     print()
     print("Next steps:")
     print("  1. Test the extension in each browser")
