@@ -1,0 +1,64 @@
+name: Build and release TS_switcher
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install build dependencies (PIL for icon resize)
+        run: |
+          python -m pip install --upgrade pip
+          pip install pillow
+
+      - name: Build extension
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: python build.py
+
+      - name: Extract release notes from README
+        id: changelog
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          python - << 'PY'
+          import os, re, pathlib
+
+          version = os.environ["VERSION"].lstrip("v")
+          readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+
+          pattern = rf"### Версия {re.escape(version)}\n((?:.|\n)*?)(?:\n### Версия |\n## |\Z)"
+          m = re.search(pattern, readme)
+          notes = (m.group(1).strip() if m else f"Версия {version}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write("body<<EOF\n")
+              f.write(notes)
+              f.write("\nEOF\n")
+          PY
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.body }}
+          generate_release_notes: false
+          files: |
+            TS_switcher-*-chromium.zip
+            TS_switcher-chromium.zip
+            TS_switcher-*-firefox.zip
+            TS_switcher-firefox.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

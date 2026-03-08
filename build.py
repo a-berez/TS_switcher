@@ -10,6 +10,7 @@ Source files for the extension live in the `src` directory.
 import os
 import shutil
 import zipfile
+import json
 from pathlib import Path
 
 try:
@@ -18,10 +19,38 @@ try:
 except ImportError:
     HAS_PIL = False
 
-VERSION = "0.3.2"
+# Версия: из env VERSION (в CI — тег, напр. v0.3.2) или fallback
+VERSION = os.environ.get("VERSION", "0.3.2").lstrip("v")
 
 BASE_DIR = Path(__file__).resolve().parent
 SRC_DIR = BASE_DIR / "src"
+
+
+def update_manifest_versions():
+    """Обновляет поле version в manifest.json и manifest-firefox.json до текущей VERSION."""
+    manifest_paths = [
+        SRC_DIR / "manifest.json",
+        SRC_DIR / "manifest-firefox.json",
+    ]
+    for path in manifest_paths:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            print(f"Warning: manifest not found: {path}")
+            continue
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as e:
+            print(f"Warning: could not parse {path}: {e}")
+            continue
+        if data.get("version") == VERSION:
+            continue
+        data["version"] = VERSION
+        path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(f"Updated version in {path} to {VERSION}")
 
 
 def resize_icons_to_spec(icons_dir):
@@ -148,6 +177,10 @@ def build_firefox():
 
 def main():
     print("Building TS_switcher extension...")
+    print()
+
+    # Sync manifest versions with VERSION
+    update_manifest_versions()
     print()
 
     # Remove old archives from repository root
