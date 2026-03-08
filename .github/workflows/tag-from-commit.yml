@@ -1,0 +1,44 @@
+name: Create tag from version commit
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  create-tag-from-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tag if commit message is version
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Last commit message: '$COMMIT_MSG'"
+
+          # Проверяем формат vX.Y.Z
+          if [[ ! "$COMMIT_MSG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Commit message is not a version tag, skipping."
+            exit 0
+          fi
+
+          VERSION="$COMMIT_MSG"
+
+          git fetch --tags
+
+          # Если тег уже существует, выходим
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists, skipping."
+            exit 0
+          fi
+
+          echo "Creating tag $VERSION at $GITHUB_SHA"
+          git tag "$VERSION" "$GITHUB_SHA"
+          git push origin "$VERSION"
+
