@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   create-tag-from-commit:
+    if: startsWith(github.event.head_commit.message, 'v')
     runs-on: ubuntu-latest
 
     steps:
@@ -51,7 +52,6 @@ jobs:
 
           echo "should_release=true" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "plain_version=$PLAIN_VERSION" >> "$GITHUB_OUTPUT"
           echo "plain_version=$PLAIN_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
@@ -97,19 +97,8 @@ jobs:
           PY
 
       - name: Sign and upload Firefox add-on to AMO
-        if: steps.prepare.outputs.should_release == 'true' && secrets.AMO_SIGN_KEY != '' && secrets.AMO_SIGN_SECRET != ''
-        uses: kewisch/action-web-ext@v1
-        with:
-          cmd: sign
-          source: TS_switcher-${{ steps.prepare.outputs.plain_version }}-firefox.zip
-          channel: listed
-          apiKey: ${{ secrets.AMO_SIGN_KEY }}
-          apiSecret: ${{ secrets.AMO_SIGN_SECRET }}
-          releaseNotes: ${{ steps.changelog.outputs.body }}
-          timeout: 900000
-
-      - name: Sign and upload Firefox add-on to AMO
-        if: steps.prepare.outputs.should_release == 'true' && secrets.AMO_SIGN_KEY != '' && secrets.AMO_SIGN_SECRET != ''
+        if: steps.prepare.outputs.should_release == 'true'
+        continue-on-error: true
         uses: kewisch/action-web-ext@v1
         with:
           cmd: sign
