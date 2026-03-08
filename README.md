@@ -14,7 +14,7 @@
 
 ### Из магазинов расширений
 
-- **Firefox**: на модерации
+- **Firefox**: [магазин расширений Firefox](https://addons.mozilla.org/ru/firefox/addon/ts_switcher/)
 - **Chrome / Edge / Opera**: на модерации
 
 ### Установка вручную
