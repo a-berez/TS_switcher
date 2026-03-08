@@ -35,6 +35,8 @@ jobs:
 
           VERSION="$COMMIT_MSG"
           echo "Detected version: $VERSION"
+          PLAIN_VERSION="${VERSION#v}"
+          PLAIN_VERSION="${VERSION#v}"
 
           git fetch --tags
 
@@ -49,6 +51,8 @@ jobs:
 
           echo "should_release=true" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "plain_version=$PLAIN_VERSION" >> "$GITHUB_OUTPUT"
+          echo "plain_version=$PLAIN_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
         if: steps.prepare.outputs.should_release == 'true'
@@ -91,6 +95,30 @@ jobs:
               f.write(notes)
               f.write("\nEOF\n")
           PY
+
+      - name: Sign and upload Firefox add-on to AMO
+        if: steps.prepare.outputs.should_release == 'true' && secrets.AMO_SIGN_KEY != '' && secrets.AMO_SIGN_SECRET != ''
+        uses: kewisch/action-web-ext@v1
+        with:
+          cmd: sign
+          source: TS_switcher-${{ steps.prepare.outputs.plain_version }}-firefox.zip
+          channel: listed
+          apiKey: ${{ secrets.AMO_SIGN_KEY }}
+          apiSecret: ${{ secrets.AMO_SIGN_SECRET }}
+          releaseNotes: ${{ steps.changelog.outputs.body }}
+          timeout: 900000
+
+      - name: Sign and upload Firefox add-on to AMO
+        if: steps.prepare.outputs.should_release == 'true' && secrets.AMO_SIGN_KEY != '' && secrets.AMO_SIGN_SECRET != ''
+        uses: kewisch/action-web-ext@v1
+        with:
+          cmd: sign
+          source: TS_switcher-${{ steps.prepare.outputs.plain_version }}-firefox.zip
+          channel: listed
+          apiKey: ${{ secrets.AMO_SIGN_KEY }}
+          apiSecret: ${{ secrets.AMO_SIGN_SECRET }}
+          releaseNotes: ${{ steps.changelog.outputs.body }}
+          timeout: 900000
 
       - name: Create GitHub Release
         if: steps.prepare.outputs.should_release == 'true'
