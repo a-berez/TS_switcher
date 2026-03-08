@@ -41,7 +41,9 @@ jobs:
 
           pattern = rf"### Версия {re.escape(version)}\n((?:.|\n)*?)(?:\n### Версия |\n## |\Z)"
           m = re.search(pattern, readme)
-          notes = (m.group(1).strip() if m else f"Версия {version}")
+          # Если блок для этой версии не найден, оставляем описание пустым,
+          # чтобы релиз создался без текста.
+          notes = (m.group(1).strip() if m else "")
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
               f.write("body<<EOF\n")
