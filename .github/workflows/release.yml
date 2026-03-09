@@ -46,11 +46,41 @@ jobs:
               f.write("\nEOF\n")
           PY
 
+      - name: Append full changelog link
+        id: changelog_link
+        env:
+          BODY: ${{ steps.changelog.outputs.body }}
+          VERSION: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          body="$BODY"
+          version="$VERSION"
+
+          # Пытаемся найти предыдущий тег (предполагается семантика vX.Y.Z)
+          prev_tag=$(git describe --tags --abbrev=0 "${version}^" 2>/dev/null || echo "")
+
+          if [ -n "$prev_tag" ]; then
+            line="Full Changelog: \`${prev_tag}...${version}\`"
+            if [ -n "$body" ]; then
+              printf '%s\n\n%s\n' "$body" "$line" > body_with_link.txt
+            else:
+              printf '%s\n' "$line" > body_with_link.txt
+            fi
+          else:
+            printf '%s\n' "$body" > body_with_link.txt
+          fi
+
+          {
+            echo 'body<<EOF'
+            cat body_with_link.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          body: ${{ steps.changelog.outputs.body }}
+          body: ${{ steps.changelog_link.outputs.body }}
           generate_release_notes: false
           files: |
             TS_switcher-*-chromium.zip

@@ -90,6 +90,66 @@ jobs:
               f.write("\nEOF\n")
           PY
 
+      - name: Append full changelog link
+        if: steps.prepare.outputs.should_release == 'true'
+        id: changelog_link
+        env:
+          BODY: ${{ steps.changelog.outputs.body }}
+          VERSION: ${{ steps.prepare.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          body="$BODY"
+          version="$VERSION"
+
+          # Пытаемся найти предыдущий тег (предполагается семантика vX.Y.Z)
+          prev_tag=$(git describe --tags --abbrev=0 "${version}^" 2>/dev/null || echo "")
+
+          if [ -n "$prev_tag" ]; then
+            line="Full Changelog: \`${prev_tag}...${version}\`"
+            if [ -n "$body" ]; then
+              printf '%s\n\n%s\n' "$body" "$line" > body_with_link.txt
+            else:
+              printf '%s\n' "$line" > body_with_link.txt
+            fi
+          else:
+            printf '%s\n' "$body" > body_with_link.txt
+          fi
+
+          {
+            echo 'body<<EOF'
+            cat body_with_link.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Prepare AMO metadata (ru release notes)
+        if: steps.prepare.outputs.should_release == 'true'
+        env:
+          BODY: ${{ steps.changelog.outputs.body }}
+        run: |
+          python - << 'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          body = os.environ.get("BODY", "").strip()
+
+          if body:
+              data = {
+                  "version": {
+                      "release_notes": {
+                          "ru": body
+                      }
+                  }
+              }
+          else:
+              data = {}
+
+          Path("amo_metadata.json").write_text(
+              json.dumps(data, ensure_ascii=False),
+              encoding="utf-8",
+          )
+          PY
+
       - name: Sign and upload Firefox add-on to AMO
         if: steps.prepare.outputs.should_release == 'true'
         continue-on-error: true
@@ -100,7 +160,7 @@ jobs:
           channel: listed
           apiKey: ${{ secrets.AMO_SIGN_KEY }}
           apiSecret: ${{ secrets.AMO_SIGN_SECRET }}
-          releaseNotes: ${{ steps.changelog.outputs.body }}
+          metaDataFile: amo_metadata.json
           timeout: 900000
 
       - name: Create GitHub Release
@@ -108,7 +168,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.prepare.outputs.version }}
-          body: ${{ steps.changelog.outputs.body }}
+          body: ${{ steps.changelog_link.outputs.body }}
           generate_release_notes: false
           files: |
             TS_switcher-*-chromium.zip
