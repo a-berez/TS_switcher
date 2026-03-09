@@ -4,6 +4,8 @@
 - [rating.pecheny.me](https://rating.pecheny.me)
 - [rating.pecheny.kz](https://rating.pecheny.kz)
 
+Зеркала поддерживаются [Александром Печеным](https://t.me/pecheny_on_intgames), за что ему большое спасибо.
+
 ## Возможности
 
 - Быстрое переключение между основным сайтом и зеркалами
