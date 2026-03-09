@@ -1,6 +1,6 @@
 # TS_switcher
 
-Расширение для браузера, позволяющее легко переключаться между Турнирным сайтом [rating.chgk.info](https://rating.chgk.info) и его зеркалами, а также сайтом [Рейтинга](https://rating.chgk.gg/):
+Расширение для браузера, позволяющее легко переключаться между [Турнирным сайтом](https://rating.chgk.info) и его зеркалами, а также сайтом [Рейтинга](https://rating.chgk.gg/):
 - [rating.pecheny.me](https://rating.pecheny.me)
 - [rating.pecheny.kz](https://rating.pecheny.kz)
 
