@@ -13,12 +13,6 @@ import zipfile
 import json
 from pathlib import Path
 
-try:
-    from PIL import Image
-    HAS_PIL = True
-except ImportError:
-    HAS_PIL = False
-
 # Версия: из env VERSION (в CI — тег, напр. v0.3.2) или fallback
 VERSION = os.environ.get("VERSION", "0.3.2").lstrip("v")
 
@@ -51,37 +45,6 @@ def update_manifest_versions():
             encoding="utf-8",
         )
         print(f"Updated version in {path} to {VERSION}")
-
-
-def resize_icons_to_spec(icons_dir):
-    """Приводит иконки к требуемым размерам (16, 48, 128) для AMO."""
-    if not HAS_PIL:
-        print("Warning: PIL not installed, skipping icon resize")
-        return
-    for filename in os.listdir(icons_dir):
-        if not filename.endswith(".png"):
-            continue
-        target = None
-        if "icon16" in filename:
-            target = 16
-        elif "icon48" in filename:
-            target = 48
-        elif "icon128" in filename:
-            target = 128
-        if not target:
-            continue
-        try:
-            path = os.path.join(icons_dir, filename)
-            img = Image.open(path)
-            if img.mode != "RGBA":
-                img = img.convert("RGBA")
-            w, h = img.size
-            if w != target or h != target:
-                img = img.resize((target, target), Image.Resampling.LANCZOS)
-                img.save(path, "PNG")
-                print(f"  Resized {filename} to {target}x{target}")
-        except Exception as e:
-            print(f"  Warning: could not resize {filename}: {e}")
 
 
 def build_chromium():
@@ -151,7 +114,6 @@ def build_firefox():
         icons_src = SRC_DIR / "icons"
         icons_dest = temp_dir / "icons"
         shutil.copytree(icons_src, icons_dest)
-        resize_icons_to_spec(icons_dest)
 
         versioned_name = BASE_DIR / f"TS_switcher-{VERSION}-firefox.zip"
         latest_name = BASE_DIR / "TS_switcher-firefox.zip"

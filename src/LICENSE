@@ -19,3 +19,25 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+Third-party tools and services
+------------------------------
+
+This project uses external tools and services that are **not** distributed as
+part of the extension package, but are involved in development, CI/CD, or
+runtime environment. They remain under their own licenses:
+
+- GitHub Actions:
+  - `actions/checkout` — MIT License
+  - `actions/setup-python` — MIT License
+  - `softprops/action-gh-release` — MIT License
+  - `kewisch/action-web-ext` — see its LICENSE (uses Mozilla `web-ext` under MPL 2.0)
+
+- Platforms:
+  - Mozilla Firefox and addons.mozilla.org (AMO) — MPL 2.0 and related licenses
+  - Chromium-based browsers (Chrome, Edge, Opera) — BSD-style and vendor-specific licenses
+
+These components are used as external services and infrastructure and are not
+incorporated into the distributable source code of TS_switcher.
