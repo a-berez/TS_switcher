@@ -34,6 +34,7 @@ runtime environment. They remain under their own licenses:
   - `actions/setup-python` — MIT License
   - `softprops/action-gh-release` — MIT License
   - `kewisch/action-web-ext` — see its LICENSE (uses Mozilla `web-ext` under MPL 2.0)
+  - `mobilefirstllc/cws-publish` — Apache License 2.0
 
 - Platforms:
   - Mozilla Firefox and addons.mozilla.org (AMO) — MPL 2.0 and related licenses

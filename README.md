@@ -17,7 +17,7 @@
 ### Из магазинов расширений
 
 - **Firefox**: [магазин расширений Firefox](https://addons.mozilla.org/ru/firefox/addon/ts_switcher/)
-- **Chrome / Edge / Opera**: на модерации
+- **Chrome / Edge / Opera**: [интернет-магазин Chrome](https://chromewebstore.google.com/detail/tsswitcher/kbfllpfigjilnlfhkalpbjoigkfplblk)
 
 ### Установка вручную
 
@@ -84,6 +84,14 @@
 - Весь код открыт для проверки
 
 ## История изменений
+
+### Версия 0.3.5
+
+**Автоматизация**
+- Добавлена автоматизация в CWS
+
+**Лицензия**
+- Обновлена лицензия
 
 ### Версия 0.3.4
 
