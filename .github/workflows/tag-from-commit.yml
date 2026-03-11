@@ -37,7 +37,6 @@ jobs:
           VERSION="$COMMIT_MSG"
           echo "Detected version: $VERSION"
           PLAIN_VERSION="${VERSION#v}"
-          PLAIN_VERSION="${VERSION#v}"
 
           git fetch --tags
 
@@ -108,7 +107,7 @@ jobs:
             line="Full Changelog: \`${prev_tag}...${version}\`"
             if [ -n "$body" ]; then
               printf '%s\n\n%s\n' "$body" "$line" > body_with_link.txt
-            else:
+            else
               printf '%s\n' "$line" > body_with_link.txt
             fi
           else:
