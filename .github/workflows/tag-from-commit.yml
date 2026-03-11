@@ -110,7 +110,7 @@ jobs:
             else
               printf '%s\n' "$line" > body_with_link.txt
             fi
-          else:
+          else
             printf '%s\n' "$body" > body_with_link.txt
           fi
 
