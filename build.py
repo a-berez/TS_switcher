@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 
 # Версия: из env VERSION (в CI — тег, напр. v0.3.2) или fallback
-VERSION = os.environ.get("VERSION", "0.3.2").lstrip("v")
+VERSION = os.environ.get("VERSION", "1.0.0").lstrip("v")
 
 BASE_DIR = Path(__file__).resolve().parent
 SRC_DIR = BASE_DIR / "src"
@@ -56,6 +56,11 @@ def build_chromium():
         "popup.html",
         "popup.css",
         "popup.js",
+        "options.html",
+        "options.css",
+        "options.js",
+        "sites.js",
+        "settings.js",
         "content.js",
         "background.js",
         "LICENSE",
@@ -108,6 +113,11 @@ def build_firefox():
         shutil.copy(SRC_DIR / "popup.html", temp_dir)
         shutil.copy(SRC_DIR / "popup.css", temp_dir)
         shutil.copy(SRC_DIR / "popup.js", temp_dir)
+        shutil.copy(SRC_DIR / "options.html", temp_dir)
+        shutil.copy(SRC_DIR / "options.css", temp_dir)
+        shutil.copy(SRC_DIR / "options.js", temp_dir)
+        shutil.copy(SRC_DIR / "sites.js", temp_dir)
+        shutil.copy(SRC_DIR / "settings.js", temp_dir)
         shutil.copy(SRC_DIR / "content.js", temp_dir)
         shutil.copy(SRC_DIR / "LICENSE", temp_dir)
 

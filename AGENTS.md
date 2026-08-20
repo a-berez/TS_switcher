@@ -17,13 +17,12 @@ User-facing conversation: русский.
 - Логика переключения и копирования ссылок живёт в `src/popup.js`. Content script почти пустой (маркер «расширение активно»).
 - Chromium: Manifest V3, `chrome.action.setIcon`. Firefox: Manifest V2, смена иконки не делается (`setIcon` — no-op).
 - Версия в `src/manifest*.json` в репозитории может отставать от changelog; в CI её выставляет `build.py` из тега `v*`.
-- Между Турнирным сайтом и Рейтингом конвертируются только главная и страницы игрока / турнира / команды. Остальные пути при переходе на `.gg` уходят на `/b/`, обратно — на `/`.
+- Между Турнирным сайтом и Рейтингом конвертируются главная и страницы игрока / турнира / команды; между `.gg`, `.fun`, `chgk.quest` — через канонический тип страницы в `sites.js`.
+- Preferred TS: DNR (Chromium) / webRequest (Firefox). Fallback только при preferred off.
 
 ## Verify
 
-- Chromium: загрузить `src` как unpacked (`manifest.json`).
-- Firefox: собрать `python build.py` и загрузить `TS_switcher-firefox.zip` через `about:debugging`.
-- Ручные сценарии: главная, `/players/<id>`, `/tournament/<id>`, `/teams/<id>` и зеркальные `/b/player|tournament|team/<id>/` на `.gg`; копирование трёх ссылок.
+- Chromium: загрузить `src` как unpacked; Firefox: `python build.py`. Сценарии: все 7 хостов, preferred `.ru`, fallback-баннер, options.
 
 ## Secrets and privacy
 

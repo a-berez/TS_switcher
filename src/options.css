@@ -1,0 +1,93 @@
+body {
+    font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f4f0cb;
+    color: #111;
+    line-height: 1.5;
+    margin: 0;
+    padding: 24px;
+}
+
+.wrap {
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+h1 {
+    font-size: 22px;
+    margin-bottom: 20px;
+}
+
+h2 {
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.card {
+    background: white;
+    border: 1px solid #bfaf80;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.hint {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 12px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.field select {
+    padding: 6px 8px;
+    font-size: 14px;
+}
+
+.checkbox-field {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.checkbox-field input {
+    margin-top: 3px;
+}
+
+.hosts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.hosts-table th,
+.hosts-table td {
+    border-bottom: 1px solid #eee;
+    padding: 8px 6px;
+    text-align: left;
+}
+
+.hosts-table th:nth-child(2),
+.hosts-table th:nth-child(3),
+.hosts-table td:nth-child(2),
+.hosts-table td:nth-child(3) {
+    text-align: center;
+    width: 100px;
+}
+
+.save-status {
+    font-size: 13px;
+    color: #2e7d32;
+    min-height: 1.2em;
+}
+
+.save-status.error {
+    color: #c62828;
+}

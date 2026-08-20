@@ -13,75 +13,41 @@
     <div class="container">
         <div class="header">
             <h2>TS_switcher</h2>
+            <button type="button" id="open-options" class="header-link" title="Настройки">⚙</button>
         </div>
-        
+
+        <div id="fallback-banner" class="fallback-banner hidden"></div>
+
         <div class="status" id="status">
             <div class="status-indicator"></div>
             <span id="current-site">Загрузка...</span>
         </div>
-        
+
+        <div class="toolbar">
+            <label for="preferred-select" class="toolbar-label">Предпочитаемый TS:</label>
+            <select id="preferred-select" class="toolbar-select"></select>
+        </div>
+
         <div class="controls">
-            <div id="main-site-controls" class="control-section hidden">
-                <h3>Переключение на зеркала:</h3>
-                <button id="switch-to-pecheny-me" class="switch-btn">
-                    <span class="btn-icon">📡</span>
-                    <span class="btn-text">rating.pecheny.me</span>
-                </button>
-                <button id="switch-to-pecheny-kz" class="switch-btn">
-                    <span class="btn-icon">📡</span>
-                    <span class="btn-text">rating.pecheny.kz</span>
-                </button>
+            <div id="switch-ts-section" class="control-section hidden">
+                <h3>Турнирный сайт и зеркала</h3>
+                <div id="switch-ts-buttons"></div>
             </div>
-            
-            <div id="mirror-site-controls" class="control-section hidden">
-                <h3>Переключение на:</h3>
-                <button id="switch-to-original" class="switch-btn">
-                    <span class="btn-icon">🏠</span>
-                    <span class="btn-text">rating.chgk.info (основной)</span>
-                </button>
-                <button id="switch-to-other-mirror" class="switch-btn">
-                    <span class="btn-icon">📡</span>
-                    <span class="btn-text" id="other-mirror-text">Другое зеркало</span>
-                </button>
-                <button id="switch-to-pecheny-me-from-gg" class="switch-btn hidden">
-                    <span class="btn-icon">📡</span>
-                    <span class="btn-text">rating.pecheny.me</span>
-                </button>
-                <button id="switch-to-pecheny-kz-from-gg" class="switch-btn hidden">
-                    <span class="btn-icon">📡</span>
-                    <span class="btn-text">rating.pecheny.kz</span>
-                </button>
-            </div>
-            
-            <div id="rating-gg-control" class="control-section hidden">
-                <h3>Переключение на сайт Рейтинга:</h3>
-                <button id="switch-to-rating-gg" class="switch-btn rating-gg-btn">
-                    <span class="btn-icon">⭐</span>
-                    <span class="btn-text">rating.chgk.gg</span>
-                </button>
+            <div id="switch-rating-section" class="control-section hidden">
+                <h3>Рейтинги</h3>
+                <div id="switch-rating-buttons"></div>
             </div>
         </div>
-        
-        <div class="footer">
-            <button id="copy-url" class="copy-btn">
-                <span class="btn-icon">📋</span>
-                <span>Копировать ссылку оригинала</span>
-            </button>
-            <div class="copy-row">
-                <button id="copy-url-me" class="copy-btn copy-btn-secondary">
-                    <span class="btn-icon">📋</span>
-                    <span>.me</span>
-                </button>
-                <button id="copy-url-kz" class="copy-btn copy-btn-secondary">
-                    <span class="btn-icon">📋</span>
-                    <span>.kz</span>
-                </button>
-            </div>
+
+        <div id="copy-section" class="footer hidden">
+            <h3 class="copy-heading">Копировать ссылку</h3>
+            <div id="copy-buttons" class="copy-row"></div>
             <div id="copy-message" class="copy-message hidden">Ссылка скопирована!</div>
         </div>
     </div>
-    
+
+    <script src="sites.js"></script>
+    <script src="settings.js"></script>
     <script src="popup.js"></script>
 </body>
 </html>
-

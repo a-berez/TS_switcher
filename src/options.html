@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки TS_switcher</title>
+    <link rel="stylesheet" href="options.css">
+</head>
+<body>
+    <main class="wrap">
+        <h1>TS_switcher — настройки</h1>
+
+        <section class="card">
+            <h2>Перехват Турнирного сайта</h2>
+            <p class="hint">При включённом предпочитаемом хосте все переходы на info / .me / .kz / .ru сразу переписываются на выбранный домен (тот же путь).</p>
+            <label class="field">
+                <span>Предпочитаемый хост</span>
+                <select id="opt-preferred"></select>
+            </label>
+            <label class="checkbox-field">
+                <input type="checkbox" id="opt-fallback" />
+                <span>Предлагать другое зеркало при ошибке загрузки (если перехват выключен)</span>
+            </label>
+        </section>
+
+        <section class="card">
+            <h2>Отображение в попапе</h2>
+            <p class="hint">Независимо настраиваются кнопки переключения и копирования.</p>
+            <table class="hosts-table">
+                <thead>
+                    <tr>
+                        <th>Сайт</th>
+                        <th>Переключение</th>
+                        <th>Копирование</th>
+                    </tr>
+                </thead>
+                <tbody id="hosts-tbody"></tbody>
+            </table>
+        </section>
+
+        <p id="save-status" class="save-status" aria-live="polite"></p>
+    </main>
+
+    <script src="sites.js"></script>
+    <script src="settings.js"></script>
+    <script src="options.js"></script>
+</body>
+</html>

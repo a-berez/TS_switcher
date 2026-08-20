@@ -1,11 +1,5 @@
 // Background script for Firefox (Manifest V2)
-
-const SUPPORTED_SITES = [
-    'rating.chgk.info',
-    'rating.pecheny.me',
-    'rating.pecheny.kz',
-    'rating.chgk.gg'
-];
+// sites.js and settings.js are loaded via manifest background.scripts order
 
 const ICON_PATHS = {
     normal: {
@@ -25,24 +19,34 @@ const ICON_PATHS = {
     }
 };
 
-async function setIcon(tabId, enabled, isRatingSite = false) {
-    // Firefox не поддерживает action.setIcon / browserAction.setIcon — пропускаем без ошибки
+let cachedPreferred = 'off';
+let cachedFallbackOnError = true;
+
+const TS_URL_PATTERNS = Sites.TS_HOSTS.map(function (h) {
+    return '*://' + h + '/*';
+});
+
+async function refreshCachedSettings() {
+    const settings = await Settings.load();
+    cachedPreferred = settings.preferredTsHost;
+    cachedFallbackOnError = settings.fallbackOnError;
+}
+
+async function setIcon(tabId, enabled, isRatingSite) {
     return;
 }
 
 function isSupportedSite(url) {
     try {
-        const urlObj = new URL(url);
-        return SUPPORTED_SITES.includes(urlObj.hostname);
+        return Sites.isSupportedHost(new URL(url).hostname);
     } catch {
         return false;
     }
 }
 
-function isRatingSite(url) {
+function isRatingSiteUrl(url) {
     try {
-        const urlObj = new URL(url);
-        return urlObj.hostname === 'rating.chgk.gg';
+        return Sites.isRatingHost(new URL(url).hostname);
     } catch {
         return false;
     }
@@ -52,18 +56,56 @@ async function updateIcon(tabId) {
     try {
         const tab = await browser.tabs.get(tabId);
         if (tab && tab.url && tab.url.startsWith('http')) {
-            const enabled = isSupportedSite(tab.url);
-            const isRating = isRatingSite(tab.url);
-            await setIcon(tabId, enabled, isRating);
+            await setIcon(tab.id, isSupportedSite(tab.url), isRatingSiteUrl(tab.url));
         }
     } catch (error) {
         console.error('Error updating icon:', error);
     }
 }
 
-browser.runtime.onInstalled.addListener(async (details) => {
-    console.log(`TS_switcher ${details.reason}`);
-    
+function redirectTsRequest(details) {
+    if (cachedPreferred === 'off') {
+        return {};
+    }
+    try {
+        const url = new URL(details.url);
+        if (!Sites.isTsHost(url.hostname) || url.hostname === cachedPreferred) {
+            return {};
+        }
+        url.hostname = cachedPreferred;
+        return { redirectUrl: url.toString() };
+    } catch {
+        return {};
+    }
+}
+
+async function handleLoadError(details) {
+    if (details.frameId !== 0) {
+        return;
+    }
+    let hostname;
+    try {
+        hostname = new URL(details.url).hostname;
+    } catch {
+        return;
+    }
+    if (!Sites.isTsHost(hostname)) {
+        return;
+    }
+    if (cachedPreferred !== 'off' || !cachedFallbackOnError) {
+        return;
+    }
+
+    const url = new URL(details.url);
+    await Settings.setFallbackForTab(details.tabId, {
+        failedHost: hostname,
+        path: url.pathname + url.search + url.hash,
+        url: details.url
+    });
+}
+
+async function bootstrap() {
+    await refreshCachedSettings();
     try {
         const tabs = await browser.tabs.query({});
         for (const tab of tabs) {
@@ -72,23 +114,51 @@ browser.runtime.onInstalled.addListener(async (details) => {
             }
         }
     } catch (error) {
-        console.error('Error updating icons on install:', error);
+        console.error('Error updating icons on bootstrap:', error);
+    }
+}
+
+browser.webRequest.onBeforeRequest.addListener(
+    redirectTsRequest,
+    { urls: TS_URL_PATTERNS, types: ['main_frame'] },
+    ['blocking']
+);
+
+browser.runtime.onInstalled.addListener(function (details) {
+    console.log('TS_switcher ' + details.reason);
+    bootstrap();
+});
+
+browser.storage.onChanged.addListener(function (changes, area) {
+    if (area === 'local' && changes[Settings.STORAGE_KEY]) {
+        refreshCachedSettings();
     }
 });
 
-browser.tabs.onActivated.addListener(async (activeInfo) => {
+browser.tabs.onActivated.addListener(function (activeInfo) {
     if (activeInfo && activeInfo.tabId !== undefined) {
-        await updateIcon(activeInfo.tabId);
+        updateIcon(activeInfo.tabId);
     }
 });
 
-browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    try {
-        if ((changeInfo.status === 'complete' || changeInfo.url) && tab && tab.url) {
-            await updateIcon(tabId);
+browser.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+    if (changeInfo.status === 'complete' && tab && tab.url) {
+        try {
+            const hostname = new URL(tab.url).hostname;
+            if (Sites.isTsHost(hostname)) {
+                Settings.clearFallbackForTab(tabId);
+            }
+        } catch {
+            // ignore
         }
-    } catch (e) {
-        // no-op
+    }
+    if ((changeInfo.status === 'complete' || changeInfo.url) && tab && tab.url) {
+        updateIcon(tabId);
     }
 });
 
+browser.webNavigation.onErrorOccurred.addListener(function (details) {
+    handleLoadError(details);
+});
+
+bootstrap();

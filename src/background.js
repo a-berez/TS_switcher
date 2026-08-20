@@ -1,11 +1,5 @@
-// Background service worker
-
-const SUPPORTED_SITES = [
-    'rating.chgk.info',
-    'rating.pecheny.me',
-    'rating.pecheny.kz',
-    'rating.chgk.gg'
-];
+// Background service worker (Chromium MV3)
+importScripts('sites.js', 'settings.js');
 
 const ICON_PATHS = {
     normal: {
@@ -25,7 +19,9 @@ const ICON_PATHS = {
     }
 };
 
-async function setIcon(tabId, enabled, isRatingSite = false) {
+const DNR_RULE_BASE_ID = 100;
+
+async function setIcon(tabId, enabled, isRatingSite) {
     try {
         let paths;
         if (!enabled) {
@@ -35,7 +31,7 @@ async function setIcon(tabId, enabled, isRatingSite = false) {
         } else {
             paths = ICON_PATHS.normal;
         }
-        await chrome.action.setIcon({ tabId, path: paths });
+        await chrome.action.setIcon({ tabId: tabId, path: paths });
     } catch (error) {
         console.error('Error setting icon:', error);
     }
@@ -43,17 +39,15 @@ async function setIcon(tabId, enabled, isRatingSite = false) {
 
 function isSupportedSite(url) {
     try {
-        const urlObj = new URL(url);
-        return SUPPORTED_SITES.includes(urlObj.hostname);
+        return Sites.isSupportedHost(new URL(url).hostname);
     } catch {
         return false;
     }
 }
 
-function isRatingSite(url) {
+function isRatingSiteUrl(url) {
     try {
-        const urlObj = new URL(url);
-        return urlObj.hostname === 'rating.chgk.gg';
+        return Sites.isRatingHost(new URL(url).hostname);
     } catch {
         return false;
     }
@@ -63,42 +57,136 @@ async function updateIcon(tabId) {
     if (tabId === chrome.tabs.TAB_ID_NONE) {
         return;
     }
-    
     try {
         const tab = await chrome.tabs.get(tabId);
         if (tab && tab.url && tab.url.startsWith('http')) {
-            const enabled = isSupportedSite(tab.url);
-            const isRating = isRatingSite(tab.url);
-            await setIcon(tabId, enabled, isRating);
+            await setIcon(tabId, isSupportedSite(tab.url), isRatingSiteUrl(tab.url));
         }
     } catch (error) {
         console.error('Error updating icon:', error);
     }
 }
 
-chrome.runtime.onInstalled.addListener(async (details) => {
-    console.log(`TS_switcher ${details.reason}`);
-    
+async function updateRedirectRules() {
+    try {
+        const settings = await Settings.load();
+        const preferred = settings.preferredTsHost;
+        const existing = await chrome.declarativeNetRequest.getDynamicRules();
+        const removeRuleIds = existing.map(function (rule) { return rule.id; });
+
+        if (preferred === 'off') {
+            if (removeRuleIds.length) {
+                await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: removeRuleIds });
+            }
+            return;
+        }
+
+        const otherHosts = Sites.TS_HOSTS.filter(function (h) { return h !== preferred; });
+        const addRules = otherHosts.map(function (host, index) {
+            return {
+                id: DNR_RULE_BASE_ID + index,
+                priority: 1,
+                action: {
+                    type: 'redirect',
+                    redirect: {
+                        transform: {
+                            scheme: 'https',
+                            host: preferred
+                        }
+                    }
+                },
+                condition: {
+                    urlFilter: '|https://' + host + '/',
+                    resourceTypes: ['main_frame']
+                }
+            };
+        });
+
+        await chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds: removeRuleIds,
+            addRules: addRules
+        });
+    } catch (error) {
+        console.error('Error updating redirect rules:', error);
+    }
+}
+
+async function handleLoadError(details) {
+    if (details.frameId !== 0) {
+        return;
+    }
+    let hostname;
+    try {
+        hostname = new URL(details.url).hostname;
+    } catch {
+        return;
+    }
+    if (!Sites.isTsHost(hostname)) {
+        return;
+    }
+
+    const settings = await Settings.load();
+    if (settings.preferredTsHost !== 'off' || !settings.fallbackOnError) {
+        return;
+    }
+
+    const url = new URL(details.url);
+    await Settings.setFallbackForTab(details.tabId, {
+        failedHost: hostname,
+        path: url.pathname + url.search + url.hash,
+        url: details.url
+    });
+}
+
+async function bootstrap() {
+    await updateRedirectRules();
     try {
         const tabs = await chrome.tabs.query({});
         for (const tab of tabs) {
             await updateIcon(tab.id);
         }
     } catch (error) {
-        console.error('Error updating icons on install:', error);
+        console.error('Error updating icons on bootstrap:', error);
+    }
+}
+
+chrome.runtime.onInstalled.addListener(function (details) {
+    console.log('TS_switcher ' + details.reason);
+    bootstrap();
+});
+
+chrome.runtime.onStartup.addListener(function () {
+    bootstrap();
+});
+
+chrome.storage.onChanged.addListener(function (changes, area) {
+    if (area === 'local' && changes[Settings.STORAGE_KEY]) {
+        updateRedirectRules();
     }
 });
 
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    await updateIcon(activeInfo.tabId);
+chrome.tabs.onActivated.addListener(function (activeInfo) {
+    updateIcon(activeInfo.tabId);
 });
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    try {
-        if ((changeInfo.status === 'complete' || changeInfo.url) && tab && tab.url) {
-            await updateIcon(tabId);
+chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+    if (changeInfo.status === 'complete' && tab && tab.url) {
+        try {
+            const hostname = new URL(tab.url).hostname;
+            if (Sites.isTsHost(hostname)) {
+                Settings.clearFallbackForTab(tabId);
+            }
+        } catch {
+            // ignore
         }
-    } catch (error) {
-        // Игнорируем ошибки для вкладок без URL
+    }
+    if ((changeInfo.status === 'complete' || changeInfo.url) && tab && tab.url) {
+        updateIcon(tabId);
     }
 });
+
+chrome.webNavigation.onErrorOccurred.addListener(function (details) {
+    handleLoadError(details);
+});
+
+bootstrap();

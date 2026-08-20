@@ -1,17 +1,23 @@
 {
   "manifest_version": 3,
   "name": "TS_switcher",
-  "version": "0.3.2",
-  "description": "Переключение между Турнирным сайтом и его зеркалами и сайтом Рейтинга",
+  "version": "1.0.0",
+  "description": "Переключение между Турнирным сайтом, зеркалами и сайтами рейтинга",
   "permissions": [
     "activeTab",
-    "tabs"
+    "tabs",
+    "storage",
+    "declarativeNetRequest",
+    "webNavigation"
   ],
   "host_permissions": [
     "https://rating.chgk.info/*",
     "https://rating.pecheny.me/*",
     "https://rating.pecheny.kz/*",
-    "https://rating.chgk.gg/*"
+    "https://rating.pecheny.ru/*",
+    "https://rating.chgk.gg/*",
+    "https://rating.chgk.fun/*",
+    "https://chgk.quest/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -21,13 +27,20 @@
       "128": "icons/icon128.png"
     }
   },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "content_scripts": [
     {
       "matches": [
         "https://rating.chgk.info/*",
         "https://rating.pecheny.me/*",
         "https://rating.pecheny.kz/*",
-        "https://rating.chgk.gg/*"
+        "https://rating.pecheny.ru/*",
+        "https://rating.chgk.gg/*",
+        "https://rating.chgk.fun/*",
+        "https://chgk.quest/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
@@ -42,4 +55,3 @@
     "128": "icons/icon128.png"
   }
 }
-

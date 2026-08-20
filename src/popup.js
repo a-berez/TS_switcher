@@ -1,180 +1,65 @@
-// Popup script
+'use strict';
 
-// Cross-browser API
 const api = (typeof browser !== 'undefined') ? browser : chrome;
-
-const SITES = {
-    MAIN: 'rating.chgk.info',
-    MIRROR_ME: 'rating.pecheny.me',
-    MIRROR_KZ: 'rating.pecheny.kz',
-    RATING_GG: 'rating.chgk.gg'
-};
 
 let currentHost = '';
 let currentPath = '';
+let currentTabId = null;
+let settings = null;
 let urlCheckInterval = null;
 
-// Типы страниц для переключения на rating.chgk.gg
-const PAGE_TYPES = {
-    PLAYER: 'player',
-    TOURNAMENT: 'tournament',
-    TEAM: 'team'
-};
-
-// Определяет тип страницы по пути
-function getPageType(path) {
-    // Паттерны для rating.chgk.info и зеркал
-    // Поддерживаем как старые пути (/player/), так и новые (/players/)
-    const infoPattern = /^\/(player|players|tournament|teams)\/(\d+)/;
-    // Паттерны для rating.chgk.gg
-    const ggPattern = /^\/b\/(player|tournament|team)\/(\d+)/;
-    
-    const infoMatch = path.match(infoPattern);
-    if (infoMatch) {
-        const type = infoMatch[1];
-        if (type === 'teams') return PAGE_TYPES.TEAM;
-        if (type === 'players') return PAGE_TYPES.PLAYER;
-        return type;
-    }
-    
-    const ggMatch = path.match(ggPattern);
-    if (ggMatch) {
-        return ggMatch[1];
-    }
-    
-    return null;
-}
-
-// Проверяет, является ли страница главной
-function isHomePage(path) {
-    // Убираем query параметры и хэш для проверки
-    const cleanPath = path.split('?')[0].split('#')[0];
-    // Главная страница: "/" или "/b/" для rating.chgk.gg
-    return cleanPath === '/' || cleanPath === '/b/' || cleanPath === '/b';
-}
-
-// Преобразует путь с rating.chgk.info/зеркал на rating.chgk.gg
-function convertPathToGG(path) {
-    const pageType = getPageType(path);
-    if (!pageType) return null;
-    
-    // Учитываем как /player/, так и /players/
-    const match = path.match(/\/(player|players|tournament|teams)\/(\d+)/);
-    if (!match) return null;
-    
-    const [, type, id] = match;
-    // players → player, teams → team, остальное (player, tournament) без изменений
-    const ggType = type === 'teams' ? 'team' : (type === 'players' ? 'player' : type);
-    
-    // Удаляем query параметры и хэш для формирования базового пути
-    const basePath = path.split('?')[0].split('#')[0];
-    const baseMatch = basePath.match(/^\/(player|players|tournament|teams)\/(\d+)/);
-    
-    if (baseMatch) {
-        return `/b/${ggType}/${id}/`;
-    }
-    
-    return null;
-}
-
-// Преобразует путь с rating.chgk.gg на rating.chgk.info
-function convertPathFromGG(path) {
-    const pageType = getPageType(path);
-    if (!pageType) return null;
-    
-    const match = path.match(/\/b\/(player|tournament|team)\/(\d+)/);
-    if (!match) return null;
-    
-    const [, type, id] = match;
-    let infoType;
-    if (type === 'team') {
-        // На Турнирном сайте путь для игроков/команд имеет вид /players/<id> или /teams/<id>
-        infoType = 'teams';
-    } else if (type === 'player') {
-        // Явно маппим player → players в соответствии с текущей структурой Турнирного сайта
-        infoType = 'players';
-    } else {
-        infoType = type;
-    }
-    
-    // Удаляем query параметры и хэш для формирования базового пути
-    const basePath = path.split('?')[0].split('#')[0];
-    const baseMatch = basePath.match(/^\/b\/(player|tournament|team)\/(\d+)/);
-    
-    if (baseMatch) {
-        return `/${infoType}/${id}`;
-    }
-    
-    return null;
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-    await initPopup();
-    setupEventListeners();
+document.addEventListener('DOMContentLoaded', async function () {
+    settings = await Settings.load();
+    buildPreferredSelect();
+    document.getElementById('open-options').addEventListener('click', openOptions);
+    document.getElementById('preferred-select').addEventListener('change', onPreferredChange);
+    await refreshPopup();
     startUrlMonitoring();
 });
 
-// Останавливаем мониторинг при закрытии попапа
-window.addEventListener('beforeunload', () => {
+window.addEventListener('beforeunload', function () {
     stopUrlMonitoring();
 });
 
-async function initPopup() {
-    try {
-        const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-        if (!tab || !tab.url) {
-            return;
-        }
-        
-        const url = new URL(tab.url);
-        const newHost = url.hostname;
-        const newPath = url.pathname + url.search;
-        
-        // Проверяем, изменился ли URL
-        if (newHost !== currentHost || newPath !== currentPath) {
-            currentHost = newHost;
-            currentPath = newPath;
-            
-            const isSupported = currentHost === SITES.MAIN || 
-                               currentHost === SITES.MIRROR_ME || 
-                               currentHost === SITES.MIRROR_KZ ||
-                               currentHost === SITES.RATING_GG;
-            
-            if (!isSupported) {
-                document.body.classList.add('disabled-site');
-                document.body.classList.remove('rating-gg-site');
-                disableCopyButton();
-            } else {
-                document.body.classList.remove('disabled-site');
-                // Добавляем класс для сайта рейтинга
-                if (currentHost === SITES.RATING_GG) {
-                    document.body.classList.add('rating-gg-site');
-                } else {
-                    document.body.classList.remove('rating-gg-site');
-                }
-            }
-            
-            updateStatus();
-            showRelevantControls();
-        }
-    } catch (error) {
-        console.error('Init error:', error);
-        document.getElementById('current-site').textContent = 'Ошибка загрузки';
+function openOptions(e) {
+    e.preventDefault();
+    if (api.runtime.openOptionsPage) {
+        api.runtime.openOptionsPage();
     }
 }
 
-// Запускает мониторинг изменений URL вкладки
-function startUrlMonitoring() {
-    // Останавливаем предыдущий интервал, если он есть
-    stopUrlMonitoring();
-    
-    // Проверяем URL каждые 500мс, пока попап открыт
-    urlCheckInterval = setInterval(async () => {
-        await initPopup();
-    }, 500);
+function buildPreferredSelect() {
+    const select = document.getElementById('preferred-select');
+    select.innerHTML = '';
+    const off = document.createElement('option');
+    off.value = 'off';
+    off.textContent = 'Выключен';
+    select.appendChild(off);
+    Sites.TS_HOSTS.forEach(function (host) {
+        const opt = document.createElement('option');
+        opt.value = host;
+        opt.textContent = Sites.HOST_META[host].short + ' (' + host + ')';
+        select.appendChild(opt);
+    });
 }
 
-// Останавливает мониторинг изменений URL
+async function onPreferredChange() {
+    const select = document.getElementById('preferred-select');
+    const value = select.value;
+    if (value !== 'off' && settings.visibleSwitchHosts[value] === false) {
+        alert('Сначала включите этот хост в настройках переключения.');
+        select.value = settings.preferredTsHost;
+        return;
+    }
+    settings = await Settings.setPreferredTsHost(value);
+    await refreshPopup();
+}
+
+function startUrlMonitoring() {
+    stopUrlMonitoring();
+    urlCheckInterval = setInterval(refreshPopup, 500);
+}
+
 function stopUrlMonitoring() {
     if (urlCheckInterval) {
         clearInterval(urlCheckInterval);
@@ -182,232 +67,231 @@ function stopUrlMonitoring() {
     }
 }
 
+async function refreshPopup() {
+    try {
+        settings = await Settings.load();
+
+        const select = document.getElementById('preferred-select');
+        if (select.value !== settings.preferredTsHost) {
+            select.value = settings.preferredTsHost;
+        }
+
+        const tabs = await api.tabs.query({ active: true, currentWindow: true });
+        const tab = tabs[0];
+        if (!tab || !tab.url) {
+            return;
+        }
+        currentTabId = tab.id;
+
+        const url = new URL(tab.url);
+        const newHost = url.hostname;
+        const newPath = url.pathname + url.search;
+
+        if (newHost !== currentHost || newPath !== currentPath) {
+            currentHost = newHost;
+            currentPath = newPath;
+            applyBodyTheme();
+            updateStatus();
+        }
+
+        await renderFallbackBanner();
+        renderSwitchButtons();
+        renderCopyButtons();
+    } catch (error) {
+        console.error('Init error:', error);
+        document.getElementById('current-site').textContent = 'Ошибка загрузки';
+    }
+}
+
+function applyBodyTheme() {
+    const supported = Sites.isSupportedHost(currentHost);
+    document.body.classList.toggle('disabled-site', !supported);
+    document.body.classList.toggle('rating-site', supported && Sites.isRatingHost(currentHost));
+}
+
 function updateStatus() {
     const statusElement = document.getElementById('current-site');
     const indicator = document.querySelector('.status-indicator');
-    
-    const siteConfig = {
-        [SITES.MAIN]: { name: 'Основной сайт (rating.chgk.info)', color: '#4caf50' },
-        [SITES.MIRROR_ME]: { name: 'Зеркало (rating.pecheny.me)', color: '#ff9800' },
-        [SITES.MIRROR_KZ]: { name: 'Зеркало (rating.pecheny.kz)', color: '#ff9800' },
-        [SITES.RATING_GG]: { name: 'Рейтинг (rating.chgk.gg)', color: '#2196f3' }
-    };
-    
-    const config = siteConfig[currentHost] || { name: 'Неизвестный сайт', color: '#f44336' };
-    
+    const meta = Sites.HOST_META[currentHost];
+    const config = meta || { name: 'Неизвестный сайт', color: '#f44336' };
     statusElement.textContent = config.name;
     indicator.style.background = config.color;
 }
 
-function showRelevantControls() {
-    const mainControls = document.getElementById('main-site-controls');
-    const mirrorControls = document.getElementById('mirror-site-controls');
-    const ratingGGControl = document.getElementById('rating-gg-control');
-    const otherMirrorBtn = document.getElementById('switch-to-other-mirror');
-    const pechenyMeFromGG = document.getElementById('switch-to-pecheny-me-from-gg');
-    const pechenyKzFromGG = document.getElementById('switch-to-pecheny-kz-from-gg');
-    const otherMirrorText = document.getElementById('other-mirror-text');
-    
-    // Сначала скрываем все секции и сбрасываем состояние всех кнопок
-    mainControls.classList.add('hidden');
-    mirrorControls.classList.add('hidden');
-    ratingGGControl.classList.add('hidden');
-    
-    // ВСЕГДА явно скрываем/показываем каждую кнопку отдельно для избежания конфликтов
-    otherMirrorBtn.classList.add('hidden');
-    pechenyMeFromGG.classList.add('hidden');
-    pechenyKzFromGG.classList.add('hidden');
-    
-    // Определяем, является ли текущая страница страницей игрока/турнира/команды
-    const pageType = getPageType(currentPath);
-    const isSupportedPage = pageType !== null;
-    // Определяем, является ли текущая страница главной
-    const isHome = isHomePage(currentPath);
-    // Показываем кнопку рейтинга на главной или на поддерживаемых страницах
-    const canShowRatingButton = isHome || isSupportedPage;
-    
-    if (currentHost === SITES.MAIN) {
-        // На основном сайте: обе кнопки зеркал + кнопка сайта рейтинга (если главная или поддерживаемая страница)
-        mainControls.classList.remove('hidden');
-        if (canShowRatingButton) {
-            ratingGGControl.classList.remove('hidden');
-        }
-    } else if (currentHost === SITES.MIRROR_ME) {
-        // На зеркале .me: основной сайт + одно зеркало (.kz) + кнопка сайта рейтинга (если главная или поддерживаемая страница)
-        mirrorControls.classList.remove('hidden');
-        otherMirrorBtn.classList.remove('hidden');
-        otherMirrorText.textContent = 'rating.pecheny.kz';
-        // Гарантируем, что кнопки для rating.chgk.gg скрыты
-        pechenyMeFromGG.classList.add('hidden');
-        pechenyKzFromGG.classList.add('hidden');
-        if (canShowRatingButton) {
-            ratingGGControl.classList.remove('hidden');
-        }
-    } else if (currentHost === SITES.MIRROR_KZ) {
-        // На зеркале .kz: основной сайт + одно зеркало (.me) + кнопка сайта рейтинга (если главная или поддерживаемая страница)
-        mirrorControls.classList.remove('hidden');
-        otherMirrorBtn.classList.remove('hidden');
-        otherMirrorText.textContent = 'rating.pecheny.me';
-        // Гарантируем, что кнопки для rating.chgk.gg скрыты
-        pechenyMeFromGG.classList.add('hidden');
-        pechenyKzFromGG.classList.add('hidden');
-        if (canShowRatingButton) {
-            ratingGGControl.classList.remove('hidden');
-        }
-    } else if (currentHost === SITES.RATING_GG) {
-        // На rating.chgk.gg показываем кнопки только на главной или на страницах игроков/команд/турниров
-        const isHome = isHomePage(currentPath);
-        const canShowButtons = isHome || isSupportedPage;
-        
-        if (canShowButtons) {
-            // На rating.chgk.gg показываем: основной сайт, оба зеркала отдельно (БЕЗ кнопки "Другое зеркало")
-            mirrorControls.classList.remove('hidden');
-            // ВАЖНО: кнопка "Другое зеркало" должна быть скрыта
-            otherMirrorBtn.classList.add('hidden');
-            // Показываем обе кнопки зеркал отдельно
-            pechenyMeFromGG.classList.remove('hidden');
-            pechenyKzFromGG.classList.remove('hidden');
-        }
-        // На rating.chgk.gg не показываем кнопку переключения на себя
+async function renderFallbackBanner() {
+    const banner = document.getElementById('fallback-banner');
+    banner.innerHTML = '';
+    banner.classList.add('hidden');
+
+    if (!currentTabId || settings.preferredTsHost !== 'off' || !settings.fallbackOnError) {
+        return;
     }
-}
 
-function setupEventListeners() {
-    document.getElementById('switch-to-pecheny-me').addEventListener('click', () => switchTo(SITES.MIRROR_ME));
-    document.getElementById('switch-to-pecheny-kz').addEventListener('click', () => switchTo(SITES.MIRROR_KZ));
-    document.getElementById('switch-to-original').addEventListener('click', () => switchTo(SITES.MAIN));
-    document.getElementById('switch-to-other-mirror').addEventListener('click', () => {
-        const target = currentHost === SITES.MIRROR_ME ? SITES.MIRROR_KZ : SITES.MIRROR_ME;
-        switchTo(target);
+    const fallback = await Settings.getFallbackForTab(currentTabId);
+    if (!fallback) {
+        return;
+    }
+
+    const failedHost = fallback.failedHost;
+    const path = fallback.path || currentPath;
+
+    banner.classList.remove('hidden');
+    const text = document.createElement('p');
+    text.className = 'fallback-text';
+    text.textContent = 'Не удалось загрузить ' + failedHost;
+    banner.appendChild(text);
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'fallback-buttons';
+
+    Sites.TS_HOSTS.forEach(function (host) {
+        if (host === failedHost) return;
+        if (settings.visibleSwitchHosts[host] === false) return;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'switch-btn fallback-btn';
+        btn.textContent = Sites.HOST_META[host].short + ' ' + host;
+        btn.addEventListener('click', function () {
+            navigateToHost(host, path);
+            Settings.clearFallbackForTab(currentTabId);
+            banner.classList.add('hidden');
+        });
+        btnRow.appendChild(btn);
     });
-    document.getElementById('switch-to-pecheny-me-from-gg').addEventListener('click', () => switchTo(SITES.MIRROR_ME));
-    document.getElementById('switch-to-pecheny-kz-from-gg').addEventListener('click', () => switchTo(SITES.MIRROR_KZ));
-    document.getElementById('switch-to-rating-gg').addEventListener('click', () => switchTo(SITES.RATING_GG, true));
-    document.getElementById('copy-url').addEventListener('click', copyOriginalUrl);
-    document.getElementById('copy-url-me').addEventListener('click', () => copyMirrorUrl(SITES.MIRROR_ME));
-    document.getElementById('copy-url-kz').addEventListener('click', () => copyMirrorUrl(SITES.MIRROR_KZ));
+
+    banner.appendChild(btnRow);
+
+    const dismiss = document.createElement('button');
+    dismiss.type = 'button';
+    dismiss.className = 'fallback-dismiss';
+    dismiss.textContent = 'Закрыть';
+    dismiss.addEventListener('click', function () {
+        Settings.clearFallbackForTab(currentTabId);
+        banner.classList.add('hidden');
+    });
+    banner.appendChild(dismiss);
 }
 
-async function switchTo(host, needConversion = false) {
+function renderSwitchButtons() {
+    const tsSection = document.getElementById('switch-ts-section');
+    const ratingSection = document.getElementById('switch-rating-section');
+    const tsContainer = document.getElementById('switch-ts-buttons');
+    const ratingContainer = document.getElementById('switch-rating-buttons');
+    tsContainer.innerHTML = '';
+    ratingContainer.innerHTML = '';
+
+    if (!Sites.isSupportedHost(currentHost)) {
+        tsSection.classList.add('hidden');
+        ratingSection.classList.add('hidden');
+        return;
+    }
+
+    const canRating = Sites.canShowRatingSwitch(currentPath, currentHost);
+    let tsCount = 0;
+    let ratingCount = 0;
+
+    Sites.TS_HOSTS.forEach(function (host) {
+        if (host === currentHost) return;
+        if (settings.visibleSwitchHosts[host] === false) return;
+        tsContainer.appendChild(createSwitchButton(host, false));
+        tsCount++;
+    });
+
+    if (canRating) {
+        Sites.RATING_HOSTS.forEach(function (host) {
+            if (host === currentHost) return;
+            if (settings.visibleSwitchHosts[host] === false) return;
+            ratingContainer.appendChild(createSwitchButton(host, true));
+            ratingCount++;
+        });
+    }
+
+    tsSection.classList.toggle('hidden', tsCount === 0);
+    ratingSection.classList.toggle('hidden', ratingCount === 0);
+}
+
+function createSwitchButton(host, isRating) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'switch-btn' + (isRating ? ' rating-btn' : '');
+    const icon = document.createElement('span');
+    icon.className = 'btn-icon';
+    icon.textContent = isRating ? '⭐' : (host === Sites.TS_HOSTS[0] ? '🏠' : '📡');
+    const text = document.createElement('span');
+    text.className = 'btn-text';
+    text.textContent = host;
+    btn.appendChild(icon);
+    btn.appendChild(text);
+    btn.addEventListener('click', function () {
+        onSwitchClick(host);
+    });
+    return btn;
+}
+
+async function onSwitchClick(host) {
+    if (Sites.isTsHost(host) && settings.preferredTsHost !== 'off') {
+        settings = await Settings.setPreferredTsHost(host);
+        document.getElementById('preferred-select').value = host;
+    }
+    await navigateToHost(host);
+}
+
+async function navigateToHost(host, pathOverride) {
     try {
-        let newPath = currentPath;
-        
-        // Если переключаемся на rating.chgk.gg или с него, нужно преобразовать путь
-        if (needConversion || host === SITES.RATING_GG || currentHost === SITES.RATING_GG) {
-            if (host === SITES.RATING_GG) {
-                // Переход на rating.chgk.gg
-                const convertedPath = convertPathToGG(currentPath);
-                if (convertedPath) {
-                    newPath = convertedPath;
-                } else {
-                    // Если конвертация не удалась (например, не поддерживаемая страница),
-                    // переходим на главную страницу рейтинга
-                    newPath = '/b/';
-                }
-            } else if (currentHost === SITES.RATING_GG) {
-                // Переход с rating.chgk.gg на основной сайт или зеркала
-                const isHome = isHomePage(currentPath);
-                if (isHome) {
-                    // С главной страницы рейтинга переходим на главные других сайтов
-                    newPath = '/';
-                } else {
-                    // С страниц игроков/команд/турниров конвертируем путь
-                    const convertedPath = convertPathFromGG(currentPath);
-                    if (convertedPath) {
-                        newPath = convertedPath;
-                    } else {
-                        // Если конвертация не удалась (например, не поддерживаемая страница),
-                        // переходим на главную страницу целевого сайта
-                        newPath = '/';
-                    }
-                }
-            }
-        }
-        
-        const newUrl = `https://${host}${newPath}`;
-        const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-        await api.tabs.update(tab.id, { url: newUrl });
+        const path = pathOverride != null ? pathOverride : currentPath;
+        const newPath = Sites.convertPath(path, currentHost, host);
+        const newUrl = Sites.buildUrl(host, newPath);
+        const tabs = await api.tabs.query({ active: true, currentWindow: true });
+        await api.tabs.update(tabs[0].id, { url: newUrl });
     } catch (error) {
         console.error('Switch error:', error);
     }
 }
 
-function disableCopyButton() {
-    const buttons = [
-        document.getElementById('copy-url'),
-        document.getElementById('copy-url-me'),
-        document.getElementById('copy-url-kz')
-    ];
+function renderCopyButtons() {
+    const section = document.getElementById('copy-section');
+    const container = document.getElementById('copy-buttons');
+    container.innerHTML = '';
 
-    buttons.forEach((btn) => {
-        if (btn) {
-            btn.disabled = true;
-            btn.classList.add('disabled');
-        }
+    if (!Sites.isSupportedHost(currentHost)) {
+        section.classList.add('hidden');
+        return;
+    }
+
+    let count = 0;
+    Sites.ALL_HOSTS.forEach(function (host) {
+        if (host === currentHost) return;
+        if (settings.visibleCopyHosts[host] === false) return;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'copy-btn copy-btn-secondary';
+        btn.textContent = Sites.HOST_META[host].short;
+        btn.title = host;
+        btn.addEventListener('click', function () {
+            copyUrlForHost(host);
+        });
+        container.appendChild(btn);
+        count++;
     });
 
-    if (buttons[0]) {
-        buttons[0].textContent = 'Функция недоступна';
-    }
+    section.classList.toggle('hidden', count === 0);
 }
 
-async function copyOriginalUrl() {
+async function copyUrlForHost(targetHost) {
     try {
-        let originalPath = currentPath;
+        const newPath = Sites.convertPath(currentPath, currentHost, targetHost);
+        const url = Sites.buildUrl(targetHost, newPath);
+        await navigator.clipboard.writeText(url);
 
-        // Для страниц рейтинга конвертируем путь так же, как при переключении на основной сайт
-        if (currentHost === SITES.RATING_GG) {
-            const isHome = isHomePage(currentPath);
-            if (isHome) {
-                // Главная рейтинга → главная Турнирного сайта
-                originalPath = '/';
-            } else {
-                // Страницы игроков/турниров/команд: пробуем сконвертировать
-                const convertedPath = convertPathFromGG(currentPath);
-                originalPath = convertedPath || '/';
-            }
-        }
-
-        const originalUrl = `https://${SITES.MAIN}${originalPath}`;
-        await navigator.clipboard.writeText(originalUrl);
-        
         const copyMessage = document.getElementById('copy-message');
         copyMessage.classList.remove('hidden');
-        
-        setTimeout(() => {
+        setTimeout(function () {
             copyMessage.classList.add('hidden');
         }, 2000);
     } catch (error) {
         console.error('Copy error:', error);
-        alert('Не удалось скопировать ссылку');
-    }
-}
-
-async function copyMirrorUrl(targetHost) {
-    try {
-        let mirrorPath = currentPath;
-
-        if (currentHost === SITES.RATING_GG) {
-            const isHome = isHomePage(currentPath);
-            if (isHome) {
-                mirrorPath = '/';
-            } else {
-                const convertedPath = convertPathFromGG(currentPath);
-                mirrorPath = convertedPath || '/';
-            }
-        }
-
-        const mirrorUrl = `https://${targetHost}${mirrorPath}`;
-        await navigator.clipboard.writeText(mirrorUrl);
-
-        const copyMessage = document.getElementById('copy-message');
-        copyMessage.classList.remove('hidden');
-
-        setTimeout(() => {
-            copyMessage.classList.add('hidden');
-        }, 2000);
-    } catch (error) {
-        console.error('Copy mirror error:', error);
         alert('Не удалось скопировать ссылку');
     }
 }

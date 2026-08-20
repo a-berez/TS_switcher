@@ -1,19 +1,21 @@
 // Content script for rating sites
 
-(function() {
+(function () {
     'use strict';
-    
-    const hostname = window.location.hostname;
-    const supportedSites = [
+
+    var supportedSites = [
         'rating.chgk.info',
         'rating.pecheny.me',
         'rating.pecheny.kz',
-        'rating.chgk.gg'
+        'rating.pecheny.ru',
+        'rating.chgk.gg',
+        'rating.chgk.fun',
+        'chgk.quest'
     ];
-    
-    if (!supportedSites.includes(hostname)) {
+
+    if (supportedSites.indexOf(window.location.hostname) < 0) {
         return;
     }
-    
-    console.log('TS_switcher active on', hostname);
-})();
+
+    console.log('TS_switcher active on', window.location.hostname);
+}());
