@@ -8,20 +8,35 @@ Source files for the extension live in the `src` directory.
 """
 
 import os
+import re
 import shutil
 import zipfile
 import json
 from pathlib import Path
 
-# Версия: из env VERSION (в CI — тег, напр. v0.3.2) или fallback
-VERSION = os.environ.get("VERSION", "1.0.0").lstrip("v")
+# Релизная версия: из env VERSION (в CI — тег, напр. v1.0.0-beta.2) или fallback.
+# Для manifest требуется числовая версия, поэтому beta-суффикс нормализуется отдельно.
+VERSION = os.environ.get("VERSION", "1.0.0-beta.2").lstrip("v")
+
+
+def to_manifest_version(version: str) -> str:
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?", version)
+    if not match:
+        return version
+    major, minor, patch, beta = match.groups()
+    if beta is None:
+        return f"{major}.{minor}.{patch}"
+    return f"{major}.{minor}.{patch}.{beta}"
+
+
+MANIFEST_VERSION = to_manifest_version(VERSION)
 
 BASE_DIR = Path(__file__).resolve().parent
 SRC_DIR = BASE_DIR / "src"
 
 
 def update_manifest_versions():
-    """Обновляет поле version в manifest.json и manifest-firefox.json до текущей VERSION."""
+    """Обновляет поле version в manifest.json и manifest-firefox.json до текущей MANIFEST_VERSION."""
     manifest_paths = [
         SRC_DIR / "manifest.json",
         SRC_DIR / "manifest-firefox.json",
@@ -37,14 +52,14 @@ def update_manifest_versions():
         except json.JSONDecodeError as e:
             print(f"Warning: could not parse {path}: {e}")
             continue
-        if data.get("version") == VERSION:
+        if data.get("version") == MANIFEST_VERSION:
             continue
-        data["version"] = VERSION
+        data["version"] = MANIFEST_VERSION
         path.write_text(
             json.dumps(data, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        print(f"Updated version in {path} to {VERSION}")
+        print(f"Updated version in {path} to {MANIFEST_VERSION}")
 
 
 def build_chromium():

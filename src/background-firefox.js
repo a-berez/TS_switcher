@@ -22,9 +22,38 @@ const ICON_PATHS = {
 let cachedPreferred = 'off';
 let cachedFallbackOnError = true;
 
+const loginGraceTabs = new Set();
+const bypassTabs = new Set();
+const bypassTimeouts = new Map();
+
 const TS_URL_PATTERNS = Sites.TS_HOSTS.map(function (h) {
     return '*://' + h + '/*';
 });
+
+function isLoginPath(pathname) {
+    return pathname === '/login' || pathname.startsWith('/login/');
+}
+
+function isLogoutPath(pathname) {
+    return pathname === '/logout' || pathname.startsWith('/logout/');
+}
+
+function isAuthPath(pathname) {
+    return isLoginPath(pathname) || isLogoutPath(pathname);
+}
+
+function addBypassForTab(tabId, ttlMs) {
+    if (tabId === undefined) return;
+    bypassTabs.add(tabId);
+    if (bypassTimeouts.has(tabId)) {
+        clearTimeout(bypassTimeouts.get(tabId));
+    }
+    const timeoutId = setTimeout(function () {
+        bypassTabs.delete(tabId);
+        bypassTimeouts.delete(tabId);
+    }, ttlMs);
+    bypassTimeouts.set(tabId, timeoutId);
+}
 
 async function refreshCachedSettings() {
     const settings = await Settings.load();
@@ -70,6 +99,14 @@ function redirectTsRequest(details) {
     try {
         const url = new URL(details.url);
         if (!Sites.isTsHost(url.hostname) || url.hostname === cachedPreferred) {
+            return {};
+        }
+        // Never redirect auth endpoints.
+        if (isAuthPath(url.pathname)) {
+            return {};
+        }
+        // If the tab is in "login grace" or explicit bypass, keep its navigation intact.
+        if (loginGraceTabs.has(details.tabId) || bypassTabs.has(details.tabId)) {
             return {};
         }
         url.hostname = cachedPreferred;
@@ -159,6 +196,33 @@ browser.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 
 browser.webNavigation.onErrorOccurred.addListener(function (details) {
     handleLoadError(details);
+});
+
+browser.webNavigation.onCommitted.addListener(function (details) {
+    if (details.frameId !== 0) return;
+    if (details.tabId === undefined) return;
+
+    let url;
+    try {
+        url = new URL(details.url);
+    } catch {
+        return;
+    }
+    if (!Sites.isTsHost(url.hostname)) return;
+
+    if (isLoginPath(url.pathname)) {
+        loginGraceTabs.add(details.tabId);
+    } else if (isLogoutPath(url.pathname)) {
+        loginGraceTabs.delete(details.tabId);
+    }
+});
+
+browser.runtime.onMessage.addListener(function (msg) {
+    if (!msg || msg.type !== 'TS_SWITCHER_BYPASS') {
+        return;
+    }
+    addBypassForTab(msg.tabId, msg.ttlMs || 8000);
+    return Promise.resolve({ ok: true });
 });
 
 bootstrap();

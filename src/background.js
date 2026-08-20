@@ -20,6 +20,62 @@ const ICON_PATHS = {
 };
 
 const DNR_RULE_BASE_ID = 100;
+const BYPASS_RULE_BASE_ID = 10000;
+const LOGIN_GRACE_RULE_BASE_ID = 20000;
+
+let bypassRuleCounter = 0;
+
+function escapeRegex(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function isLoginPath(pathname) {
+    return pathname === '/login' || pathname.startsWith('/login/');
+}
+
+function isLogoutPath(pathname) {
+    return pathname === '/logout' || pathname.startsWith('/logout/');
+}
+
+async function addBypassForTab(tabId, ttlMs) {
+    if (!tabId && tabId !== 0) return;
+    const ruleId = BYPASS_RULE_BASE_ID + (++bypassRuleCounter);
+    await chrome.declarativeNetRequest.updateSessionRules({
+        addRules: [
+            {
+                id: ruleId,
+                priority: 10,
+                action: { type: 'allowAllRequests' },
+                condition: { tabIds: [tabId], resourceTypes: ['main_frame'] }
+            }
+        ]
+    });
+    if (ttlMs && ttlMs > 0) {
+        setTimeout(function () {
+            chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [ruleId] }).catch(function () { });
+        }, ttlMs);
+    }
+}
+
+async function setLoginGrace(tabId, enabled) {
+    const ruleId = LOGIN_GRACE_RULE_BASE_ID + tabId;
+    if (enabled) {
+        await chrome.declarativeNetRequest.updateSessionRules({
+            addRules: [
+                {
+                    id: ruleId,
+                    priority: 20,
+                    action: { type: 'allowAllRequests' },
+                    condition: { tabIds: [tabId], resourceTypes: ['main_frame'] }
+                }
+            ]
+        });
+    } else {
+        await chrome.declarativeNetRequest.updateSessionRules({
+            removeRuleIds: [ruleId]
+        });
+    }
+}
 
 async function setIcon(tabId, enabled, isRatingSite) {
     try {
@@ -83,6 +139,9 @@ async function updateRedirectRules() {
 
         const otherHosts = Sites.TS_HOSTS.filter(function (h) { return h !== preferred; });
         const addRules = otherHosts.map(function (host, index) {
+            const escapedHost = escapeRegex(host);
+            // Exclude /login and /logout from redirecting. This fixes "mirror login opens original login".
+            const regexFilter = '^https://' + escapedHost + '(?:/|$)(?:$|\\?.*|#.*|player/\\d+|players/\\d+|tournament/\\d+|teams/\\d+).*';
             return {
                 id: DNR_RULE_BASE_ID + index,
                 priority: 1,
@@ -96,7 +155,7 @@ async function updateRedirectRules() {
                     }
                 },
                 condition: {
-                    urlFilter: '|https://' + host + '/',
+                    regexFilter: regexFilter,
                     resourceTypes: ['main_frame']
                 }
             };
@@ -187,6 +246,39 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 
 chrome.webNavigation.onErrorOccurred.addListener(function (details) {
     handleLoadError(details);
+});
+
+chrome.webNavigation.onCommitted.addListener(function (details) {
+    if (details.frameId !== 0) return;
+    if (details.tabId === undefined) return;
+
+    let url;
+    try {
+        url = new URL(details.url);
+    } catch {
+        return;
+    }
+    if (!Sites.isTsHost(url.hostname)) return;
+
+    if (isLoginPath(url.pathname)) {
+        setLoginGrace(details.tabId, true).catch(function () { });
+    } else if (isLogoutPath(url.pathname)) {
+        setLoginGrace(details.tabId, false).catch(function () { });
+    }
+});
+
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+    if (!msg || msg.type !== 'TS_SWITCHER_BYPASS') {
+        return;
+    }
+    const tabId = msg.tabId;
+    const ttlMs = msg.ttlMs || 8000;
+    addBypassForTab(tabId, ttlMs).then(function () {
+        sendResponse && sendResponse({ ok: true });
+    }).catch(function () {
+        sendResponse && sendResponse({ ok: false });
+    });
+    return true; // keep the message channel open for sendResponse
 });
 
 bootstrap();

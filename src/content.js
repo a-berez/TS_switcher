@@ -1,21 +1,18 @@
-// Content script for rating sites
+// Content script used only to remove one-shot query markers.
+// Actual preferred routing + bypass is done in background via DNR/session rules.
 
 (function () {
     'use strict';
 
-    var supportedSites = [
-        'rating.chgk.info',
-        'rating.pecheny.me',
-        'rating.pecheny.kz',
-        'rating.pecheny.ru',
-        'rating.chgk.gg',
-        'rating.chgk.fun',
-        'chgk.quest'
-    ];
+    var DIRECT_PARAM = 'ts_switcher_direct';
 
-    if (supportedSites.indexOf(window.location.hostname) < 0) {
-        return;
+    try {
+        var url = new URL(window.location.href);
+        if (url.searchParams.get(DIRECT_PARAM) === '1') {
+            url.searchParams.delete(DIRECT_PARAM);
+            window.history.replaceState({}, document.title, url.toString());
+        }
+    } catch {
+        // ignore
     }
-
-    console.log('TS_switcher active on', window.location.hostname);
 }());

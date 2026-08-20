@@ -6,19 +6,19 @@ let currentHost = '';
 let currentPath = '';
 let currentTabId = null;
 let settings = null;
-let urlCheckInterval = null;
+let lastSwitchKey = '';
+let lastCopyKey = '';
+let lastFallbackKey = '';
+let refreshInFlight = false;
+let refreshQueued = false;
 
 document.addEventListener('DOMContentLoaded', async function () {
     settings = await Settings.load();
     buildPreferredSelect();
     document.getElementById('open-options').addEventListener('click', openOptions);
     document.getElementById('preferred-select').addEventListener('change', onPreferredChange);
+    bindLiveUpdates();
     await refreshPopup();
-    startUrlMonitoring();
-});
-
-window.addEventListener('beforeunload', function () {
-    stopUrlMonitoring();
 });
 
 function openOptions(e) {
@@ -26,6 +26,38 @@ function openOptions(e) {
     if (api.runtime.openOptionsPage) {
         api.runtime.openOptionsPage();
     }
+}
+
+function bindLiveUpdates() {
+    if (api.tabs && api.tabs.onUpdated) {
+        api.tabs.onUpdated.addListener(function (tabId, changeInfo) {
+            if (currentTabId != null && tabId !== currentTabId) return;
+            if (changeInfo.url || changeInfo.status === 'complete' || changeInfo.status === 'loading') {
+                queueRefresh();
+            }
+        });
+    }
+    if (api.tabs && api.tabs.onActivated) {
+        api.tabs.onActivated.addListener(function () {
+            queueRefresh();
+        });
+    }
+    if (api.storage && api.storage.onChanged) {
+        api.storage.onChanged.addListener(function (changes, area) {
+            if (area !== 'local' && area !== 'session') return;
+            if (changes[Settings.STORAGE_KEY] || changes[Settings.FALLBACK_SESSION_KEY]) {
+                queueRefresh();
+            }
+        });
+    }
+}
+
+function queueRefresh() {
+    if (refreshInFlight) {
+        refreshQueued = true;
+        return;
+    }
+    refreshPopup();
 }
 
 function buildPreferredSelect() {
@@ -55,19 +87,12 @@ async function onPreferredChange() {
     await refreshPopup();
 }
 
-function startUrlMonitoring() {
-    stopUrlMonitoring();
-    urlCheckInterval = setInterval(refreshPopup, 500);
-}
-
-function stopUrlMonitoring() {
-    if (urlCheckInterval) {
-        clearInterval(urlCheckInterval);
-        urlCheckInterval = null;
-    }
-}
-
 async function refreshPopup() {
+    if (refreshInFlight) {
+        refreshQueued = true;
+        return;
+    }
+    refreshInFlight = true;
     try {
         settings = await Settings.load();
 
@@ -86,8 +111,9 @@ async function refreshPopup() {
         const url = new URL(tab.url);
         const newHost = url.hostname;
         const newPath = url.pathname + url.search;
+        const hostOrPathChanged = newHost !== currentHost || newPath !== currentPath;
 
-        if (newHost !== currentHost || newPath !== currentPath) {
+        if (hostOrPathChanged) {
             currentHost = newHost;
             currentPath = newPath;
             applyBodyTheme();
@@ -100,6 +126,12 @@ async function refreshPopup() {
     } catch (error) {
         console.error('Init error:', error);
         document.getElementById('current-site').textContent = 'Ошибка загрузки';
+    } finally {
+        refreshInFlight = false;
+        if (refreshQueued) {
+            refreshQueued = false;
+            refreshPopup();
+        }
     }
 }
 
@@ -118,16 +150,31 @@ function updateStatus() {
     indicator.style.background = config.color;
 }
 
+function visibilityKey(map) {
+    return Sites.ALL_HOSTS.map(function (host) {
+        return host + ':' + (map[host] === false ? '0' : '1');
+    }).join('|');
+}
+
 async function renderFallbackBanner() {
     const banner = document.getElementById('fallback-banner');
-    banner.innerHTML = '';
-    banner.classList.add('hidden');
+    let fallback = null;
 
-    if (!currentTabId || settings.preferredTsHost !== 'off' || !settings.fallbackOnError) {
-        return;
+    if (currentTabId && settings.preferredTsHost === 'off' && settings.fallbackOnError) {
+        fallback = await Settings.getFallbackForTab(currentTabId);
     }
 
-    const fallback = await Settings.getFallbackForTab(currentTabId);
+    const key = fallback
+        ? [currentTabId, fallback.failedHost, fallback.path || '', settings.preferredTsHost, settings.fallbackOnError].join('|')
+        : 'none';
+
+    if (key === lastFallbackKey) {
+        return;
+    }
+    lastFallbackKey = key;
+
+    banner.innerHTML = '';
+    banner.classList.add('hidden');
     if (!fallback) {
         return;
     }
@@ -155,6 +202,7 @@ async function renderFallbackBanner() {
         btn.addEventListener('click', function () {
             navigateToHost(host, path);
             Settings.clearFallbackForTab(currentTabId);
+            lastFallbackKey = '';
             banner.classList.add('hidden');
         });
         btnRow.appendChild(btn);
@@ -168,12 +216,25 @@ async function renderFallbackBanner() {
     dismiss.textContent = 'Закрыть';
     dismiss.addEventListener('click', function () {
         Settings.clearFallbackForTab(currentTabId);
+        lastFallbackKey = '';
         banner.classList.add('hidden');
     });
     banner.appendChild(dismiss);
 }
 
 function renderSwitchButtons() {
+    const canRating = Sites.isSupportedHost(currentHost) && Sites.canShowRatingSwitch(currentPath, currentHost);
+    const key = [
+        currentHost,
+        canRating ? '1' : '0',
+        visibilityKey(settings.visibleSwitchHosts)
+    ].join('|');
+
+    if (key === lastSwitchKey) {
+        return;
+    }
+    lastSwitchKey = key;
+
     const tsSection = document.getElementById('switch-ts-section');
     const ratingSection = document.getElementById('switch-rating-section');
     const tsContainer = document.getElementById('switch-ts-buttons');
@@ -187,7 +248,6 @@ function renderSwitchButtons() {
         return;
     }
 
-    const canRating = Sites.canShowRatingSwitch(currentPath, currentHost);
     let tsCount = 0;
     let ratingCount = 0;
 
@@ -230,10 +290,6 @@ function createSwitchButton(host, isRating) {
 }
 
 async function onSwitchClick(host) {
-    if (Sites.isTsHost(host) && settings.preferredTsHost !== 'off') {
-        settings = await Settings.setPreferredTsHost(host);
-        document.getElementById('preferred-select').value = host;
-    }
     await navigateToHost(host);
 }
 
@@ -241,15 +297,47 @@ async function navigateToHost(host, pathOverride) {
     try {
         const path = pathOverride != null ? pathOverride : currentPath;
         const newPath = Sites.convertPath(path, currentHost, host);
-        const newUrl = Sites.buildUrl(host, newPath);
+        let newUrl = Sites.buildUrl(host, newPath);
+        if (Sites.isTsHost(host)) {
+            const u = new URL(newUrl);
+            u.searchParams.set('ts_switcher_direct', '1');
+            newUrl = u.toString();
+        }
         const tabs = await api.tabs.query({ active: true, currentWindow: true });
-        await api.tabs.update(tabs[0].id, { url: newUrl });
+        const tabId = tabs[0].id;
+        if (Sites.isTsHost(host)) {
+            try {
+                if (api === chrome) {
+                    await new Promise(function (resolve) {
+                        api.runtime.sendMessage({ type: 'TS_SWITCHER_BYPASS', tabId: tabId, ttlMs: 8000 }, function () {
+                            resolve();
+                        });
+                    });
+                } else {
+                    await api.runtime.sendMessage({ type: 'TS_SWITCHER_BYPASS', tabId: tabId, ttlMs: 8000 });
+                }
+            } catch {
+                // ignore if background listener is not ready
+            }
+        }
+        await api.tabs.update(tabId, { url: newUrl });
     } catch (error) {
         console.error('Switch error:', error);
     }
 }
 
 function renderCopyButtons() {
+    const key = [
+        currentHost,
+        Sites.isSupportedHost(currentHost) ? '1' : '0',
+        visibilityKey(settings.visibleCopyHosts)
+    ].join('|');
+
+    if (key === lastCopyKey) {
+        return;
+    }
+    lastCopyKey = key;
+
     const section = document.getElementById('copy-section');
     const container = document.getElementById('copy-buttons');
     container.innerHTML = '';

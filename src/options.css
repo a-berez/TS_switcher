@@ -76,10 +76,26 @@ h2 {
 
 .hosts-table th:nth-child(2),
 .hosts-table th:nth-child(3),
+.hosts-table th:nth-child(4),
 .hosts-table td:nth-child(2),
-.hosts-table td:nth-child(3) {
+.hosts-table td:nth-child(3),
+.hosts-table td:nth-child(4) {
     text-align: center;
     width: 100px;
+}
+
+.login-link {
+    font-size: 13px;
+    color: #1565c0;
+    text-decoration: none;
+}
+
+.login-link:hover {
+    text-decoration: underline;
+}
+
+.login-na {
+    color: #999;
 }
 
 .save-status {

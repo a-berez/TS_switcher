@@ -3,7 +3,7 @@ Date: 2026-08-20
 
 ## Now
 
-Реализовано: зеркало `.ru`, рейтинги `.fun` и `chgk.quest`, настройки (preferred TS, fallback, видимость switch/copy), перехват TS (DNR / webRequest), fallback-баннер в попапе, динамический попап и options.
+Реализовано: зеркало `.ru`, рейтинги `.fun` и `chgk.quest`, настройки (preferred TS, fallback, видимость switch/copy), перехват TS (DNR / webRequest) с исключением `/login` и `/logout`, login grace до `/logout`, one-shot bypass для кликов по TS-зеркалам из popup, fallback-баннер в попапе, динамический попап без polling (без мерцания кнопок) и options.
 
 ## In progress
 
@@ -11,7 +11,7 @@ Date: 2026-08-20
 
 ## Next
 
-Ручная проверка в Chrome и Firefox; релиз с тегом `v1.0.0`.
+Ручная проверка в Chrome и Firefox; релиз с тегом `v1.0.0-beta.2`.
 
 ## Holes
 

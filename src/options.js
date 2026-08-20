@@ -56,6 +56,22 @@ function buildHostsTable(settings) {
         cpTd.appendChild(cpCb);
         tr.appendChild(cpTd);
 
+        const loginTd = document.createElement('td');
+        if (Sites.isTsHost(host)) {
+            const loginLink = document.createElement('a');
+            loginLink.className = 'login-link';
+            loginLink.href = 'https://' + host + '/login';
+            loginLink.target = '_blank';
+            loginLink.rel = 'noopener noreferrer';
+            loginLink.textContent = 'Войти';
+            loginLink.title = 'Открыть /login на ' + host;
+            loginTd.appendChild(loginLink);
+        } else {
+            loginTd.textContent = '—';
+            loginTd.className = 'login-na';
+        }
+        tr.appendChild(loginTd);
+
         tbody.appendChild(tr);
     });
 }
