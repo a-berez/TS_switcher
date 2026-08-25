@@ -89,8 +89,15 @@ async function setIcon(tabId, enabled, isRatingSite) {
         }
         await chrome.action.setIcon({ tabId: tabId, path: paths });
     } catch (error) {
-        console.error('Error setting icon:', error);
+        if (!isMissingTabError(error)) {
+            console.error('Error setting icon:', error);
+        }
     }
+}
+
+function isMissingTabError(error) {
+    const msg = (error && error.message) ? error.message : String(error || '');
+    return /no tab with id/i.test(msg);
 }
 
 function isSupportedSite(url) {
@@ -119,7 +126,9 @@ async function updateIcon(tabId) {
             await setIcon(tabId, isSupportedSite(tab.url), isRatingSiteUrl(tab.url));
         }
     } catch (error) {
-        console.error('Error updating icon:', error);
+        if (!isMissingTabError(error)) {
+            console.error('Error updating icon:', error);
+        }
     }
 }
 

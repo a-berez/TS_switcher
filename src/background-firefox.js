@@ -65,6 +65,11 @@ async function setIcon(tabId, enabled, isRatingSite) {
     return;
 }
 
+function isMissingTabError(error) {
+    const msg = (error && error.message) ? error.message : String(error || '');
+    return /no tab with id/i.test(msg);
+}
+
 function isSupportedSite(url) {
     try {
         return Sites.isSupportedHost(new URL(url).hostname);
@@ -88,7 +93,9 @@ async function updateIcon(tabId) {
             await setIcon(tab.id, isSupportedSite(tab.url), isRatingSiteUrl(tab.url));
         }
     } catch (error) {
-        console.error('Error updating icon:', error);
+        if (!isMissingTabError(error)) {
+            console.error('Error updating icon:', error);
+        }
     }
 }
 

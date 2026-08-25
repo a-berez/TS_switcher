@@ -7,6 +7,8 @@
 body {
     font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     width: 320px;
+    max-height: 600px;
+    overflow-y: auto;
     background: #f4f0cb;
 }
 
@@ -208,8 +210,8 @@ h3 {
 }
 
 .copy-row {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 6px;
 }
 
@@ -217,7 +219,7 @@ h3 {
     padding: 8px 12px;
     background: #bfaf80;
     color: white;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 6px;
     cursor: pointer;
     font-size: 11px;
@@ -226,14 +228,27 @@ h3 {
 }
 
 .copy-btn-secondary {
-    flex: 1 1 auto;
-    min-width: 48px;
+    min-width: 0;
+    width: 100%;
     font-size: 10px;
     padding: 6px 8px;
 }
 
-.copy-btn:hover {
-    background: #a89f70;
+.copy-btn-ts:hover {
+    background: #f4f0cb;
+    color: #000000;
+    border-color: #4040c0;
+}
+
+.copy-btn-rating {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.copy-btn-rating:hover {
+    background: #bbdefb;
+    border-color: #1976d2;
+    color: #0d47a1;
 }
 
 .copy-message {
@@ -283,13 +298,25 @@ body.rating-site .toolbar {
     border-color: #dbeafe;
 }
 
-body.rating-site .copy-btn {
+body.rating-site .copy-btn-ts {
+    background: #bfaf80;
+    color: white;
+}
+
+body.rating-site .copy-btn-ts:hover {
+    background: #f4f0cb;
+    color: #000000;
+    border-color: #4040c0;
+}
+
+body.rating-site .copy-btn-rating {
     background: #dbeafe;
     color: #1e40af;
 }
 
-body.rating-site .copy-btn:hover {
+body.rating-site .copy-btn-rating:hover {
     background: #bfdbfe;
+    border-color: #1976d2;
 }
 
 body.rating-site .copy-message {

@@ -13,8 +13,8 @@
 ## Поток
 
 1. Попап читает URL вкладки и настройки из `chrome.storage.local`.
-2. Кнопки переключения и копирования генерируются по `visibleSwitchHosts` / `visibleCopyHosts`.
-3. `Sites.convertPath` — канонический тип страницы (player/tournament/team) и path целевого хоста.
+2. Кнопки переключения и копирования генерируются по `visibleSwitchHosts` / `visibleCopyHosts` и только при `Sites.hasExactPath` (иначе кнопка скрыта, без fallback на главную).
+3. `Sites.convertPath` — канонический тип страницы (player/tournament/team) и path целевого хоста; TS↔TS без типа сохраняет path; иначе без типа — главная (для скрытых кнопок не используется в UI).
 4. **Preferred TS:** DNR (Chromium) или `webRequest` (Firefox) редиректит main_frame с любого TS на preferred (тот же path).
 5. **Fallback:** при `preferred === off` и сетевой ошибке TS — `webNavigation.onErrorOccurred` → session storage → баннер в попапе с выбором другого TS.
 6. При включённом preferred клик по TS в попапе меняет preferred и открывает хост.

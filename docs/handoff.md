@@ -1,9 +1,9 @@
 # Handoff: —
-Date: 2026-08-20
+Date: 2026-08-25
 
-Задача закрыта. Следующий шаг — ручная проверка и релиз `v1.0.0-beta.2`.
+Задача по отзыву тестирования (без login-bounce) закрыта в `1.0.0-beta.3`. Следующий шаг — ручная проверка и релиз `v1.0.0-beta.3`.
 
 ## Verify
 
-- Chrome: загрузить unpacked `src`, проверить переключение/copy на TS и рейтингах, preferred `.ru`, fallback (симулировать блокировку info); дополнительно проверить login grace до `/logout` и one-shot bypass при клике по TS-зеркалу из popup.
-- Firefox: `python build.py`, загрузить zip, тот же сценарий + webRequest redirect с login grace до `/logout`.
+- Chrome/Vivaldi: unpacked `src` — на `/venues` (TS) нет КПР/ККР; TS↔TS switch/copy ведут на тот же path; на `chgk.quest/map` нет кнопок на главные; tooltip с полным URL; 6 copy → сетка 3×2; fallback-баннер: короткие подписи, без хостов с выключенной видимостью; длинный попап прокручивается.
+- Firefox: `python build.py`, тот же сценарий.

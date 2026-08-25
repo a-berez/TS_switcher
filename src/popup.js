@@ -198,7 +198,8 @@ async function renderFallbackBanner() {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'switch-btn fallback-btn';
-        btn.textContent = Sites.HOST_META[host].short + ' ' + host;
+        btn.textContent = Sites.HOST_META[host].short;
+        btn.title = host;
         btn.addEventListener('click', function () {
             navigateToHost(host, path);
             Settings.clearFallbackForTab(currentTabId);
@@ -223,10 +224,9 @@ async function renderFallbackBanner() {
 }
 
 function renderSwitchButtons() {
-    const canRating = Sites.isSupportedHost(currentHost) && Sites.canShowRatingSwitch(currentPath, currentHost);
     const key = [
         currentHost,
-        canRating ? '1' : '0',
+        currentPath,
         visibilityKey(settings.visibleSwitchHosts)
     ].join('|');
 
@@ -254,18 +254,18 @@ function renderSwitchButtons() {
     Sites.TS_HOSTS.forEach(function (host) {
         if (host === currentHost) return;
         if (settings.visibleSwitchHosts[host] === false) return;
+        if (!Sites.hasExactPath(currentPath, currentHost, host)) return;
         tsContainer.appendChild(createSwitchButton(host, false));
         tsCount++;
     });
 
-    if (canRating) {
-        Sites.RATING_HOSTS.forEach(function (host) {
-            if (host === currentHost) return;
-            if (settings.visibleSwitchHosts[host] === false) return;
-            ratingContainer.appendChild(createSwitchButton(host, true));
-            ratingCount++;
-        });
-    }
+    Sites.RATING_HOSTS.forEach(function (host) {
+        if (host === currentHost) return;
+        if (settings.visibleSwitchHosts[host] === false) return;
+        if (!Sites.hasExactPath(currentPath, currentHost, host)) return;
+        ratingContainer.appendChild(createSwitchButton(host, true));
+        ratingCount++;
+    });
 
     tsSection.classList.toggle('hidden', tsCount === 0);
     ratingSection.classList.toggle('hidden', ratingCount === 0);
@@ -283,6 +283,8 @@ function createSwitchButton(host, isRating) {
     text.textContent = host;
     btn.appendChild(icon);
     btn.appendChild(text);
+    const targetPath = Sites.convertPath(currentPath, currentHost, host);
+    btn.title = Sites.buildUrl(host, targetPath);
     btn.addEventListener('click', function () {
         onSwitchClick(host);
     });
@@ -329,7 +331,7 @@ async function navigateToHost(host, pathOverride) {
 function renderCopyButtons() {
     const key = [
         currentHost,
-        Sites.isSupportedHost(currentHost) ? '1' : '0',
+        currentPath,
         visibilityKey(settings.visibleCopyHosts)
     ].join('|');
 
@@ -351,12 +353,17 @@ function renderCopyButtons() {
     Sites.ALL_HOSTS.forEach(function (host) {
         if (host === currentHost) return;
         if (settings.visibleCopyHosts[host] === false) return;
+        if (!Sites.hasExactPath(currentPath, currentHost, host)) return;
+
+        const targetPath = Sites.convertPath(currentPath, currentHost, host);
+        const url = Sites.buildUrl(host, targetPath);
+        const isRating = Sites.isRatingHost(host);
 
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'copy-btn copy-btn-secondary';
+        btn.className = 'copy-btn copy-btn-secondary' + (isRating ? ' copy-btn-rating' : ' copy-btn-ts');
         btn.textContent = Sites.HOST_META[host].short;
-        btn.title = host;
+        btn.title = url;
         btn.addEventListener('click', function () {
             copyUrlForHost(host);
         });

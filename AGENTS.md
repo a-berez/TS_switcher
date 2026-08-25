@@ -17,10 +17,12 @@ User-facing conversation: русский.
 - Логика переключения и копирования ссылок живёт в `src/popup.js`. Обновление попапа — по `tabs`/`storage` событиям, без polling; DOM кнопок пересобирается только при смене ключа (хост/путь/видимость/fallback). Content script только снимает query-маркер one-shot bypass.
 - Chromium: Manifest V3, `chrome.action.setIcon`. Firefox: Manifest V2, смена иконки не делается (`setIcon` — no-op).
 - Версия в `src/manifest*.json` в репозитории может отставать от changelog; в CI её выставляет `build.py` из тега `v*`.
+- Кнопки switch/copy только при точном соответствии path (`Sites.hasExactPath`): главная, player/tournament/team, либо TS↔TS (общий path). Иначе кнопок «на главную за неимением соответствия» нет.
 - Между Турнирным сайтом и Рейтингом конвертируются главная и страницы игрока / турнира / команды; между `.gg`, `.fun`, `chgk.quest` — через канонический тип страницы в `sites.js`.
 - Preferred TS: DNR (Chromium) / webRequest (Firefox). `/login` и `/logout` не перехватываются.
 - Пока открыта `/login`, preferred-redirection в этой вкладке временно выключается до `/logout` (login grace).
 - В options напротив TS-хостов (info / .me / .kz / .ru) есть ссылка «Войти» → `/login` в новой вкладке.
+- Fallback-баннер показывает только хосты с включённой видимостью переключения; подписи — короткие (`.me`), полный хост в `title`.
 
 ## Verify
 

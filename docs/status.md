@@ -1,9 +1,9 @@
 # Status
-Date: 2026-08-20
+Date: 2026-08-25
 
 ## Now
 
-Реализовано: зеркало `.ru`, рейтинги `.fun` и `chgk.quest`, настройки (preferred TS, fallback, видимость switch/copy), перехват TS (DNR / webRequest) с исключением `/login` и `/logout`, login grace до `/logout`, one-shot bypass для кликов по TS-зеркалам из popup, fallback-баннер в попапе, динамический попап без polling (без мерцания кнопок) и options.
+`1.0.0-beta.3`: кнопки switch/copy только при точном path; fallback-баннер — короткие подписи и только видимые хосты; tooltip с полным URL; сетка copy 3×N; разные hover для ККТС/ККР; скролл попапа; «No tab with id» не логируется.
 
 ## In progress
 
@@ -11,10 +11,11 @@ Date: 2026-08-20
 
 ## Next
 
-Ручная проверка в Chrome и Firefox; релиз с тегом `v1.0.0-beta.2`.
+Ручная проверка; релиз с тегом `v1.0.0-beta.3`.
 
 ## Holes
 
-- Fallback ловит только сетевые ошибки браузера, не HTTP/tаймаут.
+- Fallback ловит только сетевые ошибки браузера, не HTTP/таймаут.
 - Firefox: смена иконки по-прежнему no-op.
 - Нет автотестов на `sites.js`.
+- Увод незалогиненного зеркала на `rating.chgk.info/login` — поведение сайта, не расширения.

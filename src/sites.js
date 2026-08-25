@@ -105,6 +105,14 @@ const Sites = (function () {
         return isHomePage(path, host) || getPageInfo(path, host) !== null;
     }
 
+    /** Exact mapping for switch/copy: home, player/tournament/team, or TS↔TS (shared path). */
+    function hasExactPath(path, fromHost, toHost) {
+        if (fromHost === toHost) return true;
+        if (isHomePage(path, fromHost)) return true;
+        if (getPageInfo(path, fromHost) !== null) return true;
+        return isTsHost(fromHost) && isTsHost(toHost);
+    }
+
     function buildPathForPage(info, host) {
         const { type, id } = info;
 
@@ -145,6 +153,11 @@ const Sites = (function () {
 
         const info = getPageInfo(path, fromHost);
         if (!info) {
+            // TS mirrors share path layout; keep /venues etc. Cross-family / rating→rating
+            // without a known page type falls back to home (callers should hide those buttons).
+            if (isTsHost(fromHost) && isTsHost(toHost)) {
+                return path;
+            }
             return getDefaultHome(toHost) + suffix;
         }
 
@@ -168,6 +181,7 @@ const Sites = (function () {
         getDefaultHome,
         getPageInfo,
         canShowRatingSwitch,
+        hasExactPath,
         buildPathForPage,
         convertPath,
         buildUrl
