@@ -25,6 +25,9 @@ let cachedFallbackOnError = true;
 const loginGraceTabs = new Set();
 const bypassTabs = new Set();
 const bypassTimeouts = new Map();
+const lastTsHostByTab = new Map();
+const ORIGINAL_TS_HOST = Sites.TS_HOSTS[0];
+const DIRECT_PARAM = 'ts_switcher_direct';
 
 const TS_URL_PATTERNS = Sites.TS_HOSTS.map(function (h) {
     return '*://' + h + '/*';
@@ -40,6 +43,27 @@ function isLogoutPath(pathname) {
 
 function isAuthPath(pathname) {
     return isLoginPath(pathname) || isLogoutPath(pathname);
+}
+
+function rememberTsHost(tabId, hostname, pathname) {
+    if (tabId === undefined) return;
+    if (!Sites.isTsHost(hostname)) return;
+    if (isAuthPath(pathname)) return;
+    lastTsHostByTab.set(tabId, hostname);
+}
+
+function resolveInfoLoginTarget(tabId) {
+    if (cachedPreferred !== 'off') {
+        if (cachedPreferred === ORIGINAL_TS_HOST) {
+            return null;
+        }
+        return cachedPreferred;
+    }
+    const last = lastTsHostByTab.get(tabId);
+    if (last && last !== ORIGINAL_TS_HOST) {
+        return last;
+    }
+    return null;
 }
 
 function addBypassForTab(tabId, ttlMs) {
@@ -100,15 +124,33 @@ async function updateIcon(tabId) {
 }
 
 function redirectTsRequest(details) {
-    if (cachedPreferred === 'off') {
-        return {};
-    }
     try {
         const url = new URL(details.url);
+        rememberTsHost(details.tabId, url.hostname, url.pathname);
+
+        // A/B: site auth bounce to info/login → preferred or last mirror.
+        if (url.hostname === ORIGINAL_TS_HOST && isLoginPath(url.pathname)) {
+            if (url.searchParams.get(DIRECT_PARAM) === '1') {
+                return {};
+            }
+            if (bypassTabs.has(details.tabId)) {
+                return {};
+            }
+            const loginTarget = resolveInfoLoginTarget(details.tabId);
+            if (loginTarget) {
+                url.hostname = loginTarget;
+                return { redirectUrl: url.toString() };
+            }
+            return {};
+        }
+
+        if (cachedPreferred === 'off') {
+            return {};
+        }
         if (!Sites.isTsHost(url.hostname) || url.hostname === cachedPreferred) {
             return {};
         }
-        // Never redirect auth endpoints.
+        // Never redirect auth endpoints on mirrors (stay on that host's /login).
         if (isAuthPath(url.pathname)) {
             return {};
         }
@@ -154,6 +196,14 @@ async function bootstrap() {
         const tabs = await browser.tabs.query({});
         for (const tab of tabs) {
             if (tab.id !== undefined) {
+                if (tab.url) {
+                    try {
+                        const u = new URL(tab.url);
+                        rememberTsHost(tab.id, u.hostname, u.pathname);
+                    } catch {
+                        // ignore
+                    }
+                }
                 await updateIcon(tab.id);
             }
         }
@@ -183,6 +233,12 @@ browser.tabs.onActivated.addListener(function (activeInfo) {
     if (activeInfo && activeInfo.tabId !== undefined) {
         updateIcon(activeInfo.tabId);
     }
+});
+
+browser.tabs.onRemoved.addListener(function (tabId) {
+    lastTsHostByTab.delete(tabId);
+    loginGraceTabs.delete(tabId);
+    bypassTabs.delete(tabId);
 });
 
 browser.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
@@ -216,6 +272,8 @@ browser.webNavigation.onCommitted.addListener(function (details) {
         return;
     }
     if (!Sites.isTsHost(url.hostname)) return;
+
+    rememberTsHost(details.tabId, url.hostname, url.pathname);
 
     if (isLoginPath(url.pathname)) {
         loginGraceTabs.add(details.tabId);

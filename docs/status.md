@@ -3,7 +3,9 @@ Date: 2026-08-25
 
 ## Now
 
-`1.0.0-beta.3`: кнопки switch/copy только при точном path; fallback-баннер — короткие подписи и только видимые хосты; tooltip с полным URL; сетка copy 3×N; разные hover для ККТС/ККР; скролл попапа; «No tab with id» не логируется.
+`1.0.0-beta.4`: info login bounce (A+B) — увод на `rating.chgk.info/login` → preferred или последнее зеркало вкладки; bypass в options «Войти».
+
+Ранее в beta.3: точные path-кнопки и UX попапа по отзыву тестирования.
 
 ## In progress
 
@@ -11,11 +13,11 @@ Date: 2026-08-25
 
 ## Next
 
-Ручная проверка; релиз с тегом `v1.0.0-beta.3`.
+Ручная проверка login-bounce; релиз с тегом `v1.0.0-beta.4`.
 
 ## Holes
 
 - Fallback ловит только сетевые ошибки браузера, не HTTP/таймаут.
 - Firefox: смена иконки по-прежнему no-op.
 - Нет автотестов на `sites.js`.
-- Увод незалогиненного зеркала на `rating.chgk.info/login` — поведение сайта, не расширения.
+- Chromium login-bounce через `tabs.update` (возможен краткий мелькание info).

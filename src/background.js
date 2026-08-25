@@ -22,8 +22,12 @@ const ICON_PATHS = {
 const DNR_RULE_BASE_ID = 100;
 const BYPASS_RULE_BASE_ID = 10000;
 const LOGIN_GRACE_RULE_BASE_ID = 20000;
+const ORIGINAL_TS_HOST = Sites.TS_HOSTS[0];
+const DIRECT_PARAM = 'ts_switcher_direct';
 
 let bypassRuleCounter = 0;
+let cachedPreferred = 'off';
+const lastTsHostByTab = new Map();
 
 function escapeRegex(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -35,6 +39,49 @@ function isLoginPath(pathname) {
 
 function isLogoutPath(pathname) {
     return pathname === '/logout' || pathname.startsWith('/logout/');
+}
+
+function rememberTsHost(tabId, hostname, pathname) {
+    if (tabId === undefined || tabId === chrome.tabs.TAB_ID_NONE) return;
+    if (!Sites.isTsHost(hostname)) return;
+    if (isLoginPath(pathname) || isLogoutPath(pathname)) return;
+    lastTsHostByTab.set(tabId, hostname);
+}
+
+/** A: preferred; B: last non-auth TS host on this tab (not info). */
+function resolveInfoLoginTarget(tabId) {
+    if (cachedPreferred !== 'off') {
+        if (cachedPreferred === ORIGINAL_TS_HOST) {
+            return null;
+        }
+        return cachedPreferred;
+    }
+    const last = lastTsHostByTab.get(tabId);
+    if (last && last !== ORIGINAL_TS_HOST) {
+        return last;
+    }
+    return null;
+}
+
+function maybeRewriteInfoLogin(tabId, rawUrl) {
+    let url;
+    try {
+        url = new URL(rawUrl);
+    } catch {
+        return null;
+    }
+    if (url.hostname !== ORIGINAL_TS_HOST || !isLoginPath(url.pathname)) {
+        return null;
+    }
+    if (url.searchParams.get(DIRECT_PARAM) === '1') {
+        return null;
+    }
+    const target = resolveInfoLoginTarget(tabId);
+    if (!target) {
+        return null;
+    }
+    url.hostname = target;
+    return url.toString();
 }
 
 async function addBypassForTab(tabId, ttlMs) {
@@ -135,7 +182,8 @@ async function updateIcon(tabId) {
 async function updateRedirectRules() {
     try {
         const settings = await Settings.load();
-        const preferred = settings.preferredTsHost;
+        cachedPreferred = settings.preferredTsHost;
+        const preferred = cachedPreferred;
         const existing = await chrome.declarativeNetRequest.getDynamicRules();
         const removeRuleIds = existing.map(function (rule) { return rule.id; });
 
@@ -211,6 +259,14 @@ async function bootstrap() {
     try {
         const tabs = await chrome.tabs.query({});
         for (const tab of tabs) {
+            if (tab.id !== undefined && tab.url) {
+                try {
+                    const u = new URL(tab.url);
+                    rememberTsHost(tab.id, u.hostname, u.pathname);
+                } catch {
+                    // ignore
+                }
+            }
             await updateIcon(tab.id);
         }
     } catch (error) {
@@ -237,6 +293,10 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
     updateIcon(activeInfo.tabId);
 });
 
+chrome.tabs.onRemoved.addListener(function (tabId) {
+    lastTsHostByTab.delete(tabId);
+});
+
 chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
     if (changeInfo.status === 'complete' && tab && tab.url) {
         try {
@@ -257,6 +317,25 @@ chrome.webNavigation.onErrorOccurred.addListener(function (details) {
     handleLoadError(details);
 });
 
+chrome.webNavigation.onBeforeNavigate.addListener(function (details) {
+    if (details.frameId !== 0) return;
+    if (details.tabId === undefined) return;
+
+    let url;
+    try {
+        url = new URL(details.url);
+    } catch {
+        return;
+    }
+
+    rememberTsHost(details.tabId, url.hostname, url.pathname);
+
+    const rewritten = maybeRewriteInfoLogin(details.tabId, details.url);
+    if (rewritten) {
+        chrome.tabs.update(details.tabId, { url: rewritten }).catch(function () { });
+    }
+});
+
 chrome.webNavigation.onCommitted.addListener(function (details) {
     if (details.frameId !== 0) return;
     if (details.tabId === undefined) return;
@@ -268,6 +347,8 @@ chrome.webNavigation.onCommitted.addListener(function (details) {
         return;
     }
     if (!Sites.isTsHost(url.hostname)) return;
+
+    rememberTsHost(details.tabId, url.hostname, url.pathname);
 
     if (isLoginPath(url.pathname)) {
         setLoginGrace(details.tabId, true).catch(function () { });

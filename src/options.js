@@ -60,7 +60,7 @@ function buildHostsTable(settings) {
         if (Sites.isTsHost(host)) {
             const loginLink = document.createElement('a');
             loginLink.className = 'login-link';
-            loginLink.href = 'https://' + host + '/login';
+            loginLink.href = 'https://' + host + '/login?ts_switcher_direct=1';
             loginLink.target = '_blank';
             loginLink.rel = 'noopener noreferrer';
             loginLink.textContent = 'Войти';

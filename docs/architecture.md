@@ -16,8 +16,9 @@
 2. Кнопки переключения и копирования генерируются по `visibleSwitchHosts` / `visibleCopyHosts` и только при `Sites.hasExactPath` (иначе кнопка скрыта, без fallback на главную).
 3. `Sites.convertPath` — канонический тип страницы (player/tournament/team) и path целевого хоста; TS↔TS без типа сохраняет path; иначе без типа — главная (для скрытых кнопок не используется в UI).
 4. **Preferred TS:** DNR (Chromium) или `webRequest` (Firefox) редиректит main_frame с любого TS на preferred (тот же path).
-5. **Fallback:** при `preferred === off` и сетевой ошибке TS — `webNavigation.onErrorOccurred` → session storage → баннер в попапе с выбором другого TS.
-6. При включённом preferred клик по TS в попапе меняет preferred и открывает хост.
+5. **Info login bounce:** переход на `rating.chgk.info/login` → preferred (если задан) или последний TS-хост вкладки; Chromium — `webNavigation`+`tabs.update`, Firefox — `webRequest`. Bypass: `ts_switcher_direct=1`.
+6. **Fallback:** при `preferred === off` и сетевой ошибке TS — `webNavigation.onErrorOccurred` → session storage → баннер в попапе с выбором другого TS.
+7. При включённом preferred клик по TS в попапе меняет preferred и открывает хост.
 
 ## Модули
 
