@@ -1,11 +1,11 @@
 # Status
-Date: 2026-08-25
+Date: 2026-08-27
 
 ## Now
 
-`1.0.0-beta.4`: info login bounce (A+B) — увод на `rating.chgk.info/login` → preferred или последнее зеркало вкладки; bypass в options «Войти».
+`1.0.0-beta.5`: рейтинг `elo-chgk.uk`; при уходе с elo сбрасываются `sort`/`dir`.
 
-Ранее в beta.3: точные path-кнопки и UX попапа по отзыву тестирования.
+Ранее: `1.0.0-beta.4` info login bounce (A+B) ещё не выпущен отдельным тегом (изменения уже в дереве).
 
 ## In progress
 
@@ -13,7 +13,7 @@ Date: 2026-08-25
 
 ## Next
 
-Ручная проверка login-bounce; релиз с тегом `v1.0.0-beta.4`.
+Ручная проверка elo + login-bounce; релиз тегом `v1.0.0-beta.5` (или сначала `beta.4`, затем `beta.5`).
 
 ## Holes
 

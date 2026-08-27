@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "TS_switcher",
-  "version": "1.0.0.4",
+  "version": "1.0.0.5",
   "description": "Переключение между Турнирным сайтом, зеркалами и сайтами рейтинга",
   "permissions": [
     "tabs",
@@ -16,7 +16,8 @@
     "https://rating.pecheny.ru/*",
     "https://rating.chgk.gg/*",
     "https://rating.chgk.fun/*",
-    "https://chgk.quest/*"
+    "https://chgk.quest/*",
+    "https://elo-chgk.uk/*"
   ],
   "browser_action": {
     "default_popup": "popup.html",
@@ -43,7 +44,8 @@
         "https://rating.pecheny.ru/*",
         "https://rating.chgk.gg/*",
         "https://rating.chgk.fun/*",
-        "https://chgk.quest/*"
+        "https://chgk.quest/*",
+        "https://elo-chgk.uk/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"

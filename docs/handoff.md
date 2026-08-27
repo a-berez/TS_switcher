@@ -1,11 +1,14 @@
-# Handoff: —
-Date: 2026-08-25
+# Handoff: elo-chgk.uk
+Date: 2026-08-27
 
-Login-bounce A+B в `1.0.0-beta.4`. Следующий шаг — ручная проверка и релиз `v1.0.0-beta.4`.
+`1.0.0-beta.5` в манифестах и `build.py`. Добавлен `elo-chgk.uk`; при уходе с elo query `sort`/`dir` отбрасываются.
+
+Ранее в дереве: login-bounce A+B (`beta.4`).
 
 ## Verify
 
-- preferred=.me, с .kz без сессии → `.me/login`, не info
-- preferred=off, с .kz → `.kz/login`
-- options «Войти» на info при preferred=.me остаётся на info
-- сценарии beta.3 (path-кнопки, fallback-баннер, tooltip, сетка copy)
+- с TS `/players/28751` → elo `/players/28751`; `/tournament/13017` → `/tournaments/13017`; `/teams/49804` → `/teams/49804`
+- с elo `?sort=…&dir=…` на TS/другие рейтинги — без query сортировки
+- с elo на `.gg` / `.fun` / `quest` и обратно
+- options: видимость switch/copy для elo; попап показывает кнопку `elo`
+- preferred=.me login-bounce сценарии из beta.4

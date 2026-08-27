@@ -1,12 +1,12 @@
 # Architecture
 
-Расширение работает на семи хостах: четыре TS (один path) и три рейтинга (разные path).
+Расширение работает на восьми хостах: четыре TS (один path) и четыре рейтинга (разные path).
 
 ## Границы
 
 Внутри: попап (UI + маршрутизация URL), background (иконка, DNR/webRequest, fallback), `sites.js` / `settings.js`, options, сборка ZIP.
 
-Снаружи: `rating.chgk.info`, `rating.pecheny.me|kz|ru`, `rating.chgk.gg`, `rating.chgk.fun`, `chgk.quest`.
+Снаружи: `rating.chgk.info`, `rating.pecheny.me|kz|ru`, `rating.chgk.gg`, `rating.chgk.fun`, `chgk.quest`, `elo-chgk.uk`.
 
 Не делаем: синхронизацию логина, произвольные домены.
 

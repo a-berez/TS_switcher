@@ -16,7 +16,7 @@ from pathlib import Path
 
 # Релизная версия: из env VERSION (в CI — тег, напр. v1.0.0-beta.2) или fallback.
 # Для manifest требуется числовая версия, поэтому beta-суффикс нормализуется отдельно.
-VERSION = os.environ.get("VERSION", "1.0.0-beta.4").lstrip("v")
+VERSION = os.environ.get("VERSION", "1.0.0-beta.5").lstrip("v")
 
 
 def to_manifest_version(version: str) -> str:

@@ -12,7 +12,8 @@ const Sites = (function () {
     const RATING_HOSTS = [
         'rating.chgk.gg',
         'rating.chgk.fun',
-        'chgk.quest'
+        'chgk.quest',
+        'elo-chgk.uk'
     ];
 
     const ALL_HOSTS = TS_HOSTS.concat(RATING_HOSTS);
@@ -24,7 +25,8 @@ const Sites = (function () {
         'rating.pecheny.ru': { name: 'Зеркало (rating.pecheny.ru)', short: '.ru', color: '#ff9800', family: 'ts' },
         'rating.chgk.gg': { name: 'Рейтинг (rating.chgk.gg)', short: '.gg', color: '#2196f3', family: 'rating' },
         'rating.chgk.fun': { name: 'Рейтинг (rating.chgk.fun)', short: '.fun', color: '#2196f3', family: 'rating' },
-        'chgk.quest': { name: 'Рейтинг (chgk.quest)', short: 'quest', color: '#2196f3', family: 'rating' }
+        'chgk.quest': { name: 'Рейтинг (chgk.quest)', short: 'quest', color: '#2196f3', family: 'rating' },
+        'elo-chgk.uk': { name: 'Рейтинг (elo-chgk.uk)', short: 'elo', color: '#2196f3', family: 'rating' }
     };
 
     const PAGE_TYPES = { PLAYER: 'player', TOURNAMENT: 'tournament', TEAM: 'team' };
@@ -98,6 +100,15 @@ const Sites = (function () {
             return { type: m[1], id: m[2] };
         }
 
+        if (host === 'elo-chgk.uk') {
+            const m = pathname.match(/^\/(players|teams|tournaments)\/(\d+)/);
+            if (!m) return null;
+            const type = m[1] === 'teams' ? PAGE_TYPES.TEAM
+                : m[1] === 'players' ? PAGE_TYPES.PLAYER
+                    : PAGE_TYPES.TOURNAMENT;
+            return { type, id: m[2] };
+        }
+
         return null;
     }
 
@@ -139,13 +150,36 @@ const Sites = (function () {
             return `/${seg}/${id}`;
         }
 
+        if (host === 'elo-chgk.uk') {
+            const seg = type === PAGE_TYPES.TEAM ? 'teams'
+                : type === PAGE_TYPES.PLAYER ? 'players'
+                    : 'tournaments';
+            return `/${seg}/${id}`;
+        }
+
         return getDefaultHome(host);
+    }
+
+    /** Drop elo UI query (sort/dir); keep other params and hash. */
+    function suffixForTarget(suffix, fromHost) {
+        if (fromHost !== 'elo-chgk.uk' || !suffix) return suffix;
+
+        const hashIdx = suffix.indexOf('#');
+        const queryPart = hashIdx >= 0 ? suffix.slice(0, hashIdx) : suffix;
+        const hashPart = hashIdx >= 0 ? suffix.slice(hashIdx) : '';
+        if (!queryPart.startsWith('?')) return suffix;
+
+        const params = new URLSearchParams(queryPart.slice(1));
+        params.delete('sort');
+        params.delete('dir');
+        const q = params.toString();
+        return (q ? '?' + q : '') + hashPart;
     }
 
     function convertPath(path, fromHost, toHost) {
         if (fromHost === toHost) return path;
 
-        const { suffix } = splitPath(path);
+        const suffix = suffixForTarget(splitPath(path).suffix, fromHost);
 
         if (isHomePage(path, fromHost)) {
             return getDefaultHome(toHost) + suffix;
