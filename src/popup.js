@@ -341,23 +341,32 @@ function renderCopyButtons() {
     lastCopyKey = key;
 
     const section = document.getElementById('copy-section');
-    const container = document.getElementById('copy-buttons');
-    container.innerHTML = '';
+    const tsRow = document.getElementById('copy-ts-row');
+    const ratingRow = document.getElementById('copy-rating-row');
+    tsRow.innerHTML = '';
+    ratingRow.innerHTML = '';
 
     if (!Sites.isSupportedHost(currentHost)) {
         section.classList.add('hidden');
+        tsRow.classList.add('hidden');
+        ratingRow.classList.add('hidden');
         return;
     }
 
+    const tsCount = fillCopyRow(tsRow, Sites.TS_HOSTS, false);
+    const ratingCount = fillCopyRow(ratingRow, Sites.RATING_HOSTS, true);
+
+    section.classList.toggle('hidden', tsCount + ratingCount === 0);
+}
+
+function fillCopyRow(row, hosts, isRating) {
     let count = 0;
-    Sites.ALL_HOSTS.forEach(function (host) {
-        if (host === currentHost) return;
+    hosts.forEach(function (host) {
         if (settings.visibleCopyHosts[host] === false) return;
         if (!Sites.hasExactPath(currentPath, currentHost, host)) return;
 
         const targetPath = Sites.convertPath(currentPath, currentHost, host);
         const url = Sites.buildUrl(host, targetPath);
-        const isRating = Sites.isRatingHost(host);
 
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -367,11 +376,13 @@ function renderCopyButtons() {
         btn.addEventListener('click', function () {
             copyUrlForHost(host);
         });
-        container.appendChild(btn);
+        row.appendChild(btn);
         count++;
     });
 
-    section.classList.toggle('hidden', count === 0);
+    row.style.setProperty('--copy-cols', String(Math.max(count, 1)));
+    row.classList.toggle('hidden', count === 0);
+    return count;
 }
 
 async function copyUrlForHost(targetHost) {

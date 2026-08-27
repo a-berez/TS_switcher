@@ -209,10 +209,20 @@ h3 {
     display: none;
 }
 
+.copy-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
 .copy-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(var(--copy-cols, 1), minmax(0, 1fr));
     gap: 6px;
+}
+
+.copy-row.hidden {
+    display: none;
 }
 
 .copy-btn {
