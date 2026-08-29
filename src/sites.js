@@ -66,47 +66,47 @@ const Sites = (function () {
         return host === 'rating.chgk.gg' ? '/b/' : '/';
     }
 
-    /** @returns {{ type: string, id: string } | null} */
+    /** @returns {{ type: string, id: string, tail: string } | null} */
     function getPageInfo(path, host) {
         const { pathname } = splitPath(path);
 
         if (isTsHost(host)) {
-            const m = pathname.match(/^\/(player|players|tournament|teams)\/(\d+)/);
+            const m = pathname.match(/^\/(player|players|tournament|teams)\/(\d+)(\/.*)?$/);
             if (!m) return null;
             const type = m[1] === 'teams' ? PAGE_TYPES.TEAM
                 : m[1] === 'players' ? PAGE_TYPES.PLAYER
                     : m[1];
-            return { type, id: m[2] };
+            return { type, id: m[2], tail: m[3] || '' };
         }
 
         if (host === 'rating.chgk.gg') {
-            const m = pathname.match(/^\/b\/(player|tournament|team)\/(\d+)/);
+            const m = pathname.match(/^\/b\/(player|tournament|team)\/(\d+)(\/.*)?$/);
             if (!m) return null;
-            return { type: m[1], id: m[2] };
+            return { type: m[1], id: m[2], tail: m[3] || '' };
         }
 
         if (host === 'rating.chgk.fun') {
-            const m = pathname.match(/^\/(player|players|tournament|teams)\/(\d+)/);
+            const m = pathname.match(/^\/(player|players|tournament|teams)\/(\d+)(\/.*)?$/);
             if (!m) return null;
             const type = m[1] === 'teams' ? PAGE_TYPES.TEAM
                 : m[1] === 'players' ? PAGE_TYPES.PLAYER
                     : m[1];
-            return { type, id: m[2] };
+            return { type, id: m[2], tail: m[3] || '' };
         }
 
         if (host === 'chgk.quest') {
-            const m = pathname.match(/^\/(player|team|tournament)\/(\d+)/);
+            const m = pathname.match(/^\/(player|team|tournament)\/(\d+)(\/.*)?$/);
             if (!m) return null;
-            return { type: m[1], id: m[2] };
+            return { type: m[1], id: m[2], tail: m[3] || '' };
         }
 
         if (host === 'elo-chgk.uk') {
-            const m = pathname.match(/^\/(players|teams|tournaments)\/(\d+)/);
+            const m = pathname.match(/^\/(players|teams|tournaments)\/(\d+)(\/.*)?$/);
             if (!m) return null;
             const type = m[1] === 'teams' ? PAGE_TYPES.TEAM
                 : m[1] === 'players' ? PAGE_TYPES.PLAYER
                     : PAGE_TYPES.TOURNAMENT;
-            return { type, id: m[2] };
+            return { type, id: m[2], tail: m[3] || '' };
         }
 
         return null;
@@ -179,10 +179,12 @@ const Sites = (function () {
     function convertPath(path, fromHost, toHost) {
         if (fromHost === toHost) return path;
 
-        const suffix = suffixForTarget(splitPath(path).suffix, fromHost);
+        const { suffix } = splitPath(path);
+        const fullSuffix = suffixForTarget(suffix, fromHost);
+        const toRating = isRatingHost(toHost);
 
         if (isHomePage(path, fromHost)) {
-            return getDefaultHome(toHost) + suffix;
+            return getDefaultHome(toHost) + (toRating ? '' : fullSuffix);
         }
 
         const info = getPageInfo(path, fromHost);
@@ -192,10 +194,15 @@ const Sites = (function () {
             if (isTsHost(fromHost) && isTsHost(toHost)) {
                 return path;
             }
-            return getDefaultHome(toHost) + suffix;
+            return getDefaultHome(toHost) + (toRating ? '' : fullSuffix);
         }
 
-        return buildPathForPage(info, toHost) + suffix;
+        if (toRating) {
+            return buildPathForPage(info, toHost);
+        }
+
+        const tail = info.tail || '';
+        return buildPathForPage(info, toHost) + tail + fullSuffix;
     }
 
     function buildUrl(host, path) {

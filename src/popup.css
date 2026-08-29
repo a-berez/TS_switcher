@@ -309,14 +309,15 @@ body.rating-site .toolbar {
 }
 
 body.rating-site .copy-btn-ts {
-    background: #bfaf80;
-    color: white;
+    background: #e8e2d0;
+    color: #6b6355;
+    border-color: #d4cbb8;
 }
 
 body.rating-site .copy-btn-ts:hover {
     background: #f4f0cb;
     color: #000000;
-    border-color: #4040c0;
+    border-color: #bfaf80;
 }
 
 body.rating-site .copy-btn-rating {

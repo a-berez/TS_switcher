@@ -307,21 +307,6 @@ async function navigateToHost(host, pathOverride) {
         }
         const tabs = await api.tabs.query({ active: true, currentWindow: true });
         const tabId = tabs[0].id;
-        if (Sites.isTsHost(host)) {
-            try {
-                if (api === chrome) {
-                    await new Promise(function (resolve) {
-                        api.runtime.sendMessage({ type: 'TS_SWITCHER_BYPASS', tabId: tabId, ttlMs: 8000 }, function () {
-                            resolve();
-                        });
-                    });
-                } else {
-                    await api.runtime.sendMessage({ type: 'TS_SWITCHER_BYPASS', tabId: tabId, ttlMs: 8000 });
-                }
-            } catch {
-                // ignore if background listener is not ready
-            }
-        }
         await api.tabs.update(tabId, { url: newUrl });
     } catch (error) {
         console.error('Switch error:', error);

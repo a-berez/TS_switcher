@@ -154,8 +154,11 @@ function redirectTsRequest(details) {
         if (isAuthPath(url.pathname)) {
             return {};
         }
-        // If the tab is in "login grace" or explicit bypass, keep its navigation intact.
-        if (loginGraceTabs.has(details.tabId) || bypassTabs.has(details.tabId)) {
+        if (url.searchParams.get(DIRECT_PARAM) === '1') {
+            return {};
+        }
+        // If the tab is in "login grace", keep its navigation intact.
+        if (loginGraceTabs.has(details.tabId)) {
             return {};
         }
         url.hostname = cachedPreferred;

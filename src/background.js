@@ -19,6 +19,7 @@ const ICON_PATHS = {
     }
 };
 
+const DIRECT_BYPASS_RULE_ID = 99;
 const DNR_RULE_BASE_ID = 100;
 const BYPASS_RULE_BASE_ID = 10000;
 const LOGIN_GRACE_RULE_BASE_ID = 20000;
@@ -31,6 +32,25 @@ const lastTsHostByTab = new Map();
 
 function escapeRegex(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildDirectBypassRule() {
+    return {
+        id: DIRECT_BYPASS_RULE_ID,
+        priority: 10,
+        action: { type: 'allow' },
+        condition: {
+            regexFilter: '[?&]' + escapeRegex(DIRECT_PARAM) + '=1',
+            resourceTypes: ['main_frame']
+        }
+    };
+}
+
+/** All TS paths except /login and /logout (and subpaths). */
+function buildTsRedirectRegexFilter(host) {
+    const escapedHost = escapeRegex(host);
+    return '^https://' + escapedHost
+        + '(?:/(?!login(?:/|$|\\?|#)|logout(?:/|$|\\?|#))(?:[^#]*)?)?(?:\\?[^#]*)?(?:#.*)?$';
 }
 
 function isLoginPath(pathname) {
@@ -187,19 +207,19 @@ async function updateRedirectRules() {
         const existing = await chrome.declarativeNetRequest.getDynamicRules();
         const removeRuleIds = existing.map(function (rule) { return rule.id; });
 
+        const addRules = [buildDirectBypassRule()];
+
         if (preferred === 'off') {
-            if (removeRuleIds.length) {
-                await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: removeRuleIds });
-            }
+            await chrome.declarativeNetRequest.updateDynamicRules({
+                removeRuleIds: removeRuleIds,
+                addRules: addRules
+            });
             return;
         }
 
         const otherHosts = Sites.TS_HOSTS.filter(function (h) { return h !== preferred; });
-        const addRules = otherHosts.map(function (host, index) {
-            const escapedHost = escapeRegex(host);
-            // Exclude /login and /logout from redirecting. This fixes "mirror login opens original login".
-            const regexFilter = '^https://' + escapedHost + '(?:/|$)(?:$|\\?.*|#.*|player/\\d+|players/\\d+|tournament/\\d+|teams/\\d+).*';
-            return {
+        otherHosts.forEach(function (host, index) {
+            addRules.push({
                 id: DNR_RULE_BASE_ID + index,
                 priority: 1,
                 action: {
@@ -212,10 +232,10 @@ async function updateRedirectRules() {
                     }
                 },
                 condition: {
-                    regexFilter: regexFilter,
+                    regexFilter: buildTsRedirectRegexFilter(host),
                     resourceTypes: ['main_frame']
                 }
-            };
+            });
         });
 
         await chrome.declarativeNetRequest.updateDynamicRules({

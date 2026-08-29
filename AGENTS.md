@@ -18,8 +18,8 @@ User-facing conversation: русский.
 - Chromium: Manifest V3, `chrome.action.setIcon`. Firefox: Manifest V2, смена иконки не делается (`setIcon` — no-op).
 - Версия в `src/manifest*.json` в репозитории может отставать от changelog; в CI её выставляет `build.py` из тега `v*`.
 - Кнопки switch/copy только при точном соответствии path (`Sites.hasExactPath`): главная, player/tournament/team, либо TS↔TS (общий path). Иначе кнопок «на главную за неимением соответствия» нет.
-- Между Турнирным сайтом и Рейтингом конвертируются главная и страницы игрока / турнира / команды; между `.gg`, `.fun`, `chgk.quest`, `elo-chgk.uk` — через канонический тип страницы в `sites.js`.
-- Preferred TS: DNR (Chromium) / webRequest (Firefox). `/login` и `/logout` на зеркалах не перехватываются preferred-правилами.
+- Между Турнирным сайтом и Рейтингом конвертируются главная и страницы игрока / турнира / команды; на TS при копировании/переключении сохраняются подпути и query; на рейтинги — канонический path без хвоста и параметров; между `.gg`, `.fun`, `chgk.quest`, `elo-chgk.uk` — через канонический тип страницы в `sites.js`.
+- Preferred TS: DNR (Chromium) / webRequest (Firefox). `/login` и `/logout` на зеркалах не перехватываются preferred-правилами. Обход осознанного перехода из попапа: `?ts_switcher_direct=1` (DNR allow / webRequest skip), не tab-wide bypass.
 - Увод сайта на `rating.chgk.info/login` переписывается: при preferred — на preferred; при preferred=off — на последний TS-хост вкладки (не info). Обход: `?ts_switcher_direct=1` (ссылки «Войти» в options).
 - Пока открыта `/login`, preferred-redirection в этой вкладке временно выключается до `/logout` (login grace).
 - В options напротив TS-хостов (info / .me / .kz / .ru) есть ссылка «Войти» → `/login` в новой вкладке (с bypass-параметром).
