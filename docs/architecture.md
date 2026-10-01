@@ -1,36 +1,45 @@
 # Architecture
 
-Расширение работает на восьми хостах: четыре TS (один path) и четыре рейтинга (разные path).
+Расширение работает на восьми хостах: четыре TS с общим форматом пути и четыре рейтинга с разными форматами.
 
 ## Границы
 
-Внутри: попап (UI + маршрутизация URL), background (иконка, DNR/webRequest, fallback), `sites.js` / `settings.js`, options, сборка ZIP.
+Внутри: попап, options, `sites.js`, `settings.js`, отдельные background Chromium/Firefox, сборка ZIP. Снаружи: `rating.chgk.info`, `rating.pecheny.me|kz|ru`, `rating.chgk.gg`, `rating.chgk.fun`, `chgk.quest`, `elo-chgk.uk`. Синхронизации авторизации и произвольных доменов нет.
 
-Снаружи: `rating.chgk.info`, `rating.pecheny.me|kz|ru`, `rating.chgk.gg`, `rating.chgk.fun`, `chgk.quest`, `elo-chgk.uk`.
+## URL и интерфейс
 
-Не делаем: синхронизацию логина, произвольные домены.
+Попап читает URL активной вкладки целиком, включая query и fragment. `Sites.hasExactPath` разрешает главную, игрока, команду, турнир и любой TS→TS путь. Неподдерживаемые межсайтовые переходы скрыты. TS-цели сохраняют подпуть/query/hash, рейтинги получают канонический путь сущности; копия текущего хоста сохраняет исходный путь.
 
-## Поток
+Клик TS добавляет `ts_switcher_direct=1` и не меняет preferred. Content script удаляет параметр, сохраняя `history.state`. Попап обновляется по событиям tabs/storage; видимость учитывается в ключах обычных кнопок и fallback. Шрифты системные, внешних ресурсов UI нет.
 
-1. Попап читает URL вкладки и настройки из `chrome.storage.local`.
-2. Кнопки переключения и копирования генерируются по `visibleSwitchHosts` / `visibleCopyHosts` и только при `Sites.hasExactPath` (иначе кнопка скрыта, без fallback на главную).
-3. `Sites.convertPath` — канонический тип страницы (player/tournament/team) и path целевого хоста; TS↔TS без типа сохраняет path; иначе без типа — главная (для скрытых кнопок не используется в UI).
-4. **Preferred TS:** DNR (Chromium) или `webRequest` (Firefox) редиректит main_frame с любого TS на preferred (тот же path).
-5. **Info login bounce:** переход на `rating.chgk.info/login` → preferred (если задан) или последний TS-хост вкладки; Chromium — `webNavigation`+`tabs.update`, Firefox — `webRequest`. Bypass: `ts_switcher_direct=1`.
-6. **Fallback:** при `preferred === off` и сетевой ошибке TS — `webNavigation.onErrorOccurred` → session storage → баннер в попапе с выбором другого TS.
-7. При включённом preferred клик по TS в попапе меняет preferred и открывает хост.
+## Настройки и состояние
 
-## Модули
+`Settings.initializeBackground()` делает background единственным писателем общих объектов. Из UI частичные изменения приходят runtime-сообщениями и выполняются последовательно. Очередь продолжает работу после ошибки записи. Options сохраняет только изменённое поле, слушает storage и не перерисовывает незавершённые изменения пользователя.
 
-| Файл | Роль |
-|------|------|
-| `src/sites.js` | Хосты, конвертация путей |
-| `src/settings.js` | Defaults, load/save, fallback session |
-| `src/popup.js` | Динамический UI |
-| `src/options.html/js` | Настройки |
-| `src/background.js` | DNR, иконки, fallback (Chromium) |
-| `src/background-firefox.js` | webRequest, fallback (Firefox) |
+Настройки — `storage.local`. Fallback и последний TS-хост Chromium — `storage.session`, при отсутствии session используется local. Старые табовые ключи удаляются при закрытии/восстановлении Chromium; срок fallback проверяется при чтении, закрытие и успешная навигация также удаляют запись.
 
-## Сборка
+## Перехват и авторизация
 
-`python build.py` — Chromium из `src`; Firefox: `manifest-firefox.json` + `background-firefox.js` → `background.js`.
+Chromium MV3 применяет DNR: общий redirect всех TS-путей, более приоритетный allow для `/login` и `/logout`, точный allow для bypass query. Правила обновляются последовательно; cachedPreferred меняется после установки правил. Исключение login grace — session allow по tabId; при пробуждении worker оно сохраняется, последний TS-хост восстанавливается из хранилища.
+
+Firefox MV2 использует постоянный background и блокирующий `webRequest`. Запрос ждёт начальной загрузки состояния и текущей очереди настроек. Это исключает потерю grace при выгрузке event page; иконка Firefox остаётся неизменной.
+
+Info login bounce: при preferred `/login` основного сайта переписывается на preferred; при off — на последнее зеркало вкладки. Chromium проверяет и начало перехода, и commit после HTTP redirect; перед поздним `tabs.update` проверяет актуальность вкладки. Firefox видит запрос login через webRequest. Прямая ссылка с bypass исключена.
+
+После открытия `/login` вкладка освобождена от preferred до запроса `/logout` или закрытия. Logout обрабатывается до commit, поэтому HTTP redirect на главную не оставляет grace. При полном новом запуске браузера открытый `/login` восстанавливает grace; для обычных страниц обещания сохранять исключение между браузерными сессиями нет.
+
+## Fallback
+
+При preferred=off и сетевой ошибке TS сохраняется URL для предложения зеркала. Отмена навигации исключена. Ошибка привязана к поколению навигации: запоздавший обработчик не должен вернуть запись после успеха/закрытия. Очистка идёт по `webNavigation.onCompleted`; `tabs.onUpdated complete` не подходит, поскольку приходит и на браузерных страницах ошибки. HTTP-ошибка с телом ответа и бесконечная загрузка не запускают fallback.
+
+## Сборка и проверка
+
+`python build.py` проверяет оба комплекта ресурсов и версии, затем создаёт versioned ZIP и latest-копии. Firefox использует свой manifest и background под именами `manifest.json`/`background.js`. Исходники и старые versioned ZIP не меняются. Номер beta.8 — `1.0.0.8`; понижение относительно исходных manifest отвергается.
+
+CI запускает проверки логики и изолированной сборки до выпуска. Тесты настоящих браузеров — `tests/README.md`; они работают с отдельными профилями и контролируемыми ответами сайтов. Обоснование владения состоянием — `decisions/2026-10-01-background-state.md`.
+
+## Темы ТС: точка интеграции
+
+По публичному HTML всех четырёх TS-хостов на 2026-10-01 выбранное оформление доступно через атрибуты `document.documentElement`: `data-site-theme` — семейство темы, `data-theme-pref` — предпочтение режима, `data-bs-theme` — фактически применённый light/dark. Анонимная страница возвращает classic/system; inline script выставляет data-bs-theme по prefers-color-scheme и обновляет при смене системного режима. Переключение light→dark подтверждено в настоящем Chromium. CSS дополнительно содержит oldschool и catppuccin.
+
+Источники: [главная ТС](https://rating.chgk.info/), [CSS оформления](https://rating.chgk.info/build/app.9f46d3d6.css). Авторизованные настройки аккаунта не читались. Для будущей интеграции существующий content script может читать эти атрибуты и отслеживать их MutationObserver, передавая данные попапу через сообщения; новых разрешений для чтения DOM не требуется. Тема берётся с активной TS-вкладки. В beta.8 такое чтение и адаптация оформления ещё не реализованы.
