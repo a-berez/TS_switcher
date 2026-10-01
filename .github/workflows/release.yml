@@ -12,11 +12,24 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check extension and isolated builds
+        run: |
+          node tests/audit-ui.cjs
+          node tests/audit-background.cjs
+          python tests/audit-build.py
 
       - name: Build extension
         env:
@@ -63,10 +76,10 @@ jobs:
             line="Full Changelog: \`${prev_tag}...${version}\`"
             if [ -n "$body" ]; then
               printf '%s\n\n%s\n' "$body" "$line" > body_with_link.txt
-            else:
+            else
               printf '%s\n' "$line" > body_with_link.txt
             fi
-          else:
+          else
             printf '%s\n' "$body" > body_with_link.txt
           fi
 
@@ -82,6 +95,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           body: ${{ steps.changelog_link.outputs.body }}
           generate_release_notes: false
+          fail_on_unmatched_files: true
           files: |
             TS_switcher-*-chromium.zip
             TS_switcher-chromium.zip

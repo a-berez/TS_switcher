@@ -19,6 +19,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check extension and isolated builds
+        run: |
+          node tests/audit-ui.cjs
+          node tests/audit-background.cjs
+          python tests/audit-build.py
+
       - name: Create tag if commit message is version
         id: prepare
         env:
@@ -40,10 +56,20 @@ jobs:
 
           git fetch --tags
 
-          # Если тег уже существует, просто отмечаем, что релиз всё равно можно создать
-          if git rev-parse "$VERSION" >/dev/null 2>&1; then
-            echo "Tag $VERSION already exists, will reuse it."
-          else
+          # Never publish this checkout under a tag belonging to another commit.
+          if git show-ref --verify --quiet "refs/tags/$VERSION"; then
+            tag_sha=$(git rev-parse "refs/tags/$VERSION^{commit}")
+            if [ "$tag_sha" != "$GITHUB_SHA" ]; then
+              echo "Refusing release: $VERSION points to $tag_sha, expected $GITHUB_SHA" >&2
+              exit 1
+            fi
+            echo "Tag $VERSION already points to this commit."
+          fi
+
+          # Validate/package this exact version before creating or pushing a tag.
+          VERSION="$VERSION" python build.py
+
+          if ! git show-ref --verify --quiet "refs/tags/$VERSION"; then
             echo "Creating tag $VERSION at $GITHUB_SHA"
             git tag "$VERSION" "$GITHUB_SHA"
             git push origin "$VERSION"
@@ -52,18 +78,6 @@ jobs:
           echo "should_release=true" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "plain_version=$PLAIN_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Python
-        if: steps.prepare.outputs.should_release == 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Build extension
-        if: steps.prepare.outputs.should_release == 'true'
-        env:
-          VERSION: ${{ steps.prepare.outputs.version }}
-        run: python build.py
 
       - name: Extract release notes from README
         if: steps.prepare.outputs.should_release == 'true'
@@ -180,6 +194,7 @@ jobs:
           tag_name: ${{ steps.prepare.outputs.version }}
           body: ${{ steps.changelog_link.outputs.body }}
           generate_release_notes: false
+          fail_on_unmatched_files: true
           files: |
             TS_switcher-*-chromium.zip
             TS_switcher-chromium.zip
