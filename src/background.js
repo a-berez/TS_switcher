@@ -1,5 +1,6 @@
 // Background service worker (Chromium MV3)
 importScripts('sites.js', 'settings.js');
+Settings.initializeBackground();
 
 const ICON_PATHS = {
     normal: {
@@ -19,16 +20,21 @@ const ICON_PATHS = {
     }
 };
 
+const AUTH_ALLOW_RULE_ID = 98;
 const DIRECT_BYPASS_RULE_ID = 99;
 const DNR_RULE_BASE_ID = 100;
-const BYPASS_RULE_BASE_ID = 10000;
 const LOGIN_GRACE_RULE_BASE_ID = 20000;
 const ORIGINAL_TS_HOST = Sites.TS_HOSTS[0];
 const DIRECT_PARAM = 'ts_switcher_direct';
+const LAST_TS_HOST_PREFIX = 'tsSwitcherLastHost:';
+const tabStateStorage = chrome.storage.session || chrome.storage.local;
 
-let bypassRuleCounter = 0;
 let cachedPreferred = 'off';
 const lastTsHostByTab = new Map();
+const navigationVersions = new Map();
+let dynamicRuleQueue = Promise.resolve();
+let sessionRuleQueue = Promise.resolve();
+let sessionStateQueue = Promise.resolve();
 
 function escapeRegex(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -40,17 +46,31 @@ function buildDirectBypassRule() {
         priority: 10,
         action: { type: 'allow' },
         condition: {
-            regexFilter: '[?&]' + escapeRegex(DIRECT_PARAM) + '=1',
+            regexFilter: '^https://(' + Sites.TS_HOSTS.map(escapeRegex).join('|')
+                + ')/[^?#]*\\?([^#]*&)?' + escapeRegex(DIRECT_PARAM) + '=1(&|#|$)',
+            isUrlFilterCaseSensitive: true,
             resourceTypes: ['main_frame']
         }
     };
 }
 
-/** All TS paths except /login and /logout (and subpaths). */
+/** RE2 has no lookahead: auth endpoints use a separate higher-priority allow. */
 function buildTsRedirectRegexFilter(host) {
-    const escapedHost = escapeRegex(host);
-    return '^https://' + escapedHost
-        + '(?:/(?!login(?:/|$|\\?|#)|logout(?:/|$|\\?|#))(?:[^#]*)?)?(?:\\?[^#]*)?(?:#.*)?$';
+    return '^https://' + escapeRegex(host) + '(/|$)';
+}
+
+function buildAuthAllowRule() {
+    return {
+        id: AUTH_ALLOW_RULE_ID,
+        priority: 5,
+        action: { type: 'allow' },
+        condition: {
+            regexFilter: '^https://(' + Sites.TS_HOSTS.map(escapeRegex).join('|')
+                + ')/(login|logout)(/|\\?|#|$)',
+            isUrlFilterCaseSensitive: true,
+            resourceTypes: ['main_frame']
+        }
+    };
 }
 
 function isLoginPath(pathname) {
@@ -65,7 +85,53 @@ function rememberTsHost(tabId, hostname, pathname) {
     if (tabId === undefined || tabId === chrome.tabs.TAB_ID_NONE) return;
     if (!Sites.isTsHost(hostname)) return;
     if (isLoginPath(pathname) || isLogoutPath(pathname)) return;
+    if (lastTsHostByTab.get(tabId) === hostname) return;
     lastTsHostByTab.set(tabId, hostname);
+    queueSessionState(function () {
+        return tabStateStorage.set({ [LAST_TS_HOST_PREFIX + tabId]: hostname });
+    });
+}
+
+function queueSessionState(operation) {
+    sessionStateQueue = sessionStateQueue.then(operation).catch(function (error) {
+        console.error('Error saving tab navigation state:', error);
+    });
+    return sessionStateQueue;
+}
+
+async function restoreTabState(tabs) {
+    const stored = await tabStateStorage.get(null);
+    const liveIds = new Set(tabs.map(function (tab) { return tab.id; }));
+    const staleKeys = [];
+    for (const key of Object.keys(stored)) {
+        if (!key.startsWith(LAST_TS_HOST_PREFIX)) continue;
+        const tabId = Number(key.slice(LAST_TS_HOST_PREFIX.length));
+        if (!liveIds.has(tabId)) {
+            staleKeys.push(key);
+        } else if (!lastTsHostByTab.has(tabId) && Sites.isTsHost(stored[key])) {
+            lastTsHostByTab.set(tabId, stored[key]);
+        }
+    }
+    if (staleKeys.length) {
+        await queueSessionState(function () { return tabStateStorage.remove(staleKeys); });
+    }
+    // Snapshot and replace within the same queue as login/logout events.
+    const update = sessionRuleQueue.then(async function () {
+        const existing = await chrome.declarativeNetRequest.getSessionRules();
+        const addRules = existing.filter(function (rule) {
+            return rule.id >= LOGIN_GRACE_RULE_BASE_ID
+                && liveIds.has(rule.id - LOGIN_GRACE_RULE_BASE_ID);
+        }).map(function (rule) {
+            return { ...rule, action: { type: 'allow' } };
+        });
+        await chrome.declarativeNetRequest.updateSessionRules({
+            removeRuleIds: existing.map(function (rule) { return rule.id; }), addRules: addRules
+        });
+    });
+    sessionRuleQueue = update.catch(function (error) {
+        console.error('Error restoring login exceptions:', error);
+    });
+    await sessionRuleQueue;
 }
 
 /** A: preferred; B: last non-auth TS host on this tab (not info). */
@@ -104,44 +170,24 @@ function maybeRewriteInfoLogin(tabId, rawUrl) {
     return url.toString();
 }
 
-async function addBypassForTab(tabId, ttlMs) {
-    if (!tabId && tabId !== 0) return;
-    const ruleId = BYPASS_RULE_BASE_ID + (++bypassRuleCounter);
-    await chrome.declarativeNetRequest.updateSessionRules({
-        addRules: [
-            {
-                id: ruleId,
-                priority: 10,
-                action: { type: 'allowAllRequests' },
-                condition: { tabIds: [tabId], resourceTypes: ['main_frame'] }
-            }
-        ]
-    });
-    if (ttlMs && ttlMs > 0) {
-        setTimeout(function () {
-            chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [ruleId] }).catch(function () { });
-        }, ttlMs);
-    }
-}
-
-async function setLoginGrace(tabId, enabled) {
+function setLoginGrace(tabId, enabled) {
+    if (!Number.isInteger(tabId) || tabId < 0) return Promise.resolve();
     const ruleId = LOGIN_GRACE_RULE_BASE_ID + tabId;
-    if (enabled) {
-        await chrome.declarativeNetRequest.updateSessionRules({
-            addRules: [
-                {
-                    id: ruleId,
-                    priority: 20,
-                    action: { type: 'allowAllRequests' },
-                    condition: { tabIds: [tabId], resourceTypes: ['main_frame'] }
-                }
-            ]
+    const update = sessionRuleQueue.then(function () {
+        return chrome.declarativeNetRequest.updateSessionRules({
+            removeRuleIds: [ruleId],
+            addRules: enabled ? [{
+                id: ruleId,
+                priority: 20,
+                action: { type: 'allow' },
+                condition: { tabIds: [tabId], resourceTypes: ['main_frame'] }
+            }] : []
         });
-    } else {
-        await chrome.declarativeNetRequest.updateSessionRules({
-            removeRuleIds: [ruleId]
-        });
-    }
+    });
+    sessionRuleQueue = update.catch(function (error) {
+        console.error('Error updating login exception:', error);
+    });
+    return sessionRuleQueue;
 }
 
 async function setIcon(tabId, enabled, isRatingSite) {
@@ -199,58 +245,65 @@ async function updateIcon(tabId) {
     }
 }
 
-async function updateRedirectRules() {
-    try {
-        const settings = await Settings.load();
-        cachedPreferred = settings.preferredTsHost;
-        const preferred = cachedPreferred;
-        const existing = await chrome.declarativeNetRequest.getDynamicRules();
-        const removeRuleIds = existing.map(function (rule) { return rule.id; });
+function updateRedirectRules() {
+    const update = dynamicRuleQueue.then(applyRedirectRules);
+    dynamicRuleQueue = update.catch(function (error) {
+        console.error('Error updating redirect rules:', error);
+    });
+    return dynamicRuleQueue;
+}
 
-        const addRules = [buildDirectBypassRule()];
+async function applyRedirectRules() {
+    const settings = await Settings.load();
+    const preferred = settings.preferredTsHost;
+    const existing = await chrome.declarativeNetRequest.getDynamicRules();
+    const removeRuleIds = existing.map(function (rule) { return rule.id; });
 
-        if (preferred === 'off') {
-            await chrome.declarativeNetRequest.updateDynamicRules({
-                removeRuleIds: removeRuleIds,
-                addRules: addRules
-            });
-            return;
-        }
+    const addRules = [buildDirectBypassRule(), buildAuthAllowRule()];
 
-        const otherHosts = Sites.TS_HOSTS.filter(function (h) { return h !== preferred; });
-        otherHosts.forEach(function (host, index) {
-            addRules.push({
-                id: DNR_RULE_BASE_ID + index,
-                priority: 1,
-                action: {
-                    type: 'redirect',
-                    redirect: {
-                        transform: {
-                            scheme: 'https',
-                            host: preferred
-                        }
-                    }
-                },
-                condition: {
-                    regexFilter: buildTsRedirectRegexFilter(host),
-                    resourceTypes: ['main_frame']
-                }
-            });
-        });
-
+    if (preferred === 'off') {
         await chrome.declarativeNetRequest.updateDynamicRules({
             removeRuleIds: removeRuleIds,
             addRules: addRules
         });
-    } catch (error) {
-        console.error('Error updating redirect rules:', error);
+        cachedPreferred = preferred;
+        return;
     }
+
+    const otherHosts = Sites.TS_HOSTS.filter(function (h) { return h !== preferred; });
+    otherHosts.forEach(function (host, index) {
+        addRules.push({
+            id: DNR_RULE_BASE_ID + index,
+            priority: 1,
+            action: {
+                type: 'redirect',
+                redirect: {
+                    transform: {
+                        scheme: 'https',
+                        host: preferred
+                    }
+                }
+            },
+            condition: {
+                regexFilter: buildTsRedirectRegexFilter(host),
+                resourceTypes: ['main_frame']
+            }
+        });
+    });
+
+    await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: removeRuleIds,
+        addRules: addRules
+    });
+    cachedPreferred = preferred;
 }
 
 async function handleLoadError(details) {
-    if (details.frameId !== 0) {
+    if (details.frameId !== 0 || /(?:ERR_ABORTED|NS_BINDING_ABORTED)/.test(details.error || '')) {
         return;
     }
+    const version = navigationVersions.get(details.tabId) || {};
+    navigationVersions.set(details.tabId, version);
     let hostname;
     try {
         hostname = new URL(details.url).hostname;
@@ -262,7 +315,8 @@ async function handleLoadError(details) {
     }
 
     const settings = await Settings.load();
-    if (settings.preferredTsHost !== 'off' || !settings.fallbackOnError) {
+    if (navigationVersions.get(details.tabId) !== version
+        || cachedPreferred !== 'off' || !settings.fallbackOnError) {
         return;
     }
 
@@ -278,11 +332,15 @@ async function bootstrap() {
     await updateRedirectRules();
     try {
         const tabs = await chrome.tabs.query({});
+        await restoreTabState(tabs);
         for (const tab of tabs) {
             if (tab.id !== undefined && tab.url) {
                 try {
                     const u = new URL(tab.url);
                     rememberTsHost(tab.id, u.hostname, u.pathname);
+                    if (Sites.isTsHost(u.hostname) && isLoginPath(u.pathname) && !navigationVersions.has(tab.id)) {
+                        await setLoginGrace(tab.id, true);
+                    }
                 } catch {
                     // ignore
                 }
@@ -296,11 +354,11 @@ async function bootstrap() {
 
 chrome.runtime.onInstalled.addListener(function (details) {
     console.log('TS_switcher ' + details.reason);
-    bootstrap();
+    updateRedirectRules();
 });
 
 chrome.runtime.onStartup.addListener(function () {
-    bootstrap();
+    updateRedirectRules();
 });
 
 chrome.storage.onChanged.addListener(function (changes, area) {
@@ -315,19 +373,13 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
 
 chrome.tabs.onRemoved.addListener(function (tabId) {
     lastTsHostByTab.delete(tabId);
+    queueSessionState(function () { return tabStateStorage.remove(LAST_TS_HOST_PREFIX + tabId); });
+    navigationVersions.delete(tabId);
+    setLoginGrace(tabId, false);
+    Settings.clearFallbackForTab(tabId);
 });
 
 chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-    if (changeInfo.status === 'complete' && tab && tab.url) {
-        try {
-            const hostname = new URL(tab.url).hostname;
-            if (Sites.isTsHost(hostname)) {
-                Settings.clearFallbackForTab(tabId);
-            }
-        } catch {
-            // ignore
-        }
-    }
     if ((changeInfo.status === 'complete' || changeInfo.url) && tab && tab.url) {
         updateIcon(tabId);
     }
@@ -337,9 +389,10 @@ chrome.webNavigation.onErrorOccurred.addListener(function (details) {
     handleLoadError(details);
 });
 
-chrome.webNavigation.onBeforeNavigate.addListener(function (details) {
+chrome.webNavigation.onBeforeNavigate.addListener(async function (details) {
     if (details.frameId !== 0) return;
     if (details.tabId === undefined) return;
+    navigationVersions.set(details.tabId, {});
 
     let url;
     try {
@@ -349,14 +402,21 @@ chrome.webNavigation.onBeforeNavigate.addListener(function (details) {
     }
 
     rememberTsHost(details.tabId, url.hostname, url.pathname);
+    // /logout can redirect before onCommitted ever sees that URL.
+    if (Sites.isTsHost(url.hostname) && isLogoutPath(url.pathname)) {
+        setLoginGrace(details.tabId, false);
+    }
 
+    const version = navigationVersions.get(details.tabId);
+    await ready;
+    if (navigationVersions.get(details.tabId) !== version) return;
     const rewritten = maybeRewriteInfoLogin(details.tabId, details.url);
     if (rewritten) {
         chrome.tabs.update(details.tabId, { url: rewritten }).catch(function () { });
     }
 });
 
-chrome.webNavigation.onCommitted.addListener(function (details) {
+chrome.webNavigation.onCommitted.addListener(async function (details) {
     if (details.frameId !== 0) return;
     if (details.tabId === undefined) return;
 
@@ -372,23 +432,33 @@ chrome.webNavigation.onCommitted.addListener(function (details) {
 
     if (isLoginPath(url.pathname)) {
         setLoginGrace(details.tabId, true).catch(function () { });
+        // HTTP redirects do not emit another onBeforeNavigate for their target.
+        // Wait for restored settings/state, then confirm this is still the current
+        // document so a delayed handler cannot replace the user's next navigation.
+        if (url.hostname === ORIGINAL_TS_HOST && url.searchParams.get(DIRECT_PARAM) !== '1') {
+            await ready;
+            const rewritten = maybeRewriteInfoLogin(details.tabId, details.url);
+            if (rewritten) {
+                try {
+                    const tab = await chrome.tabs.get(details.tabId);
+                    if (tab.url === details.url && (!tab.pendingUrl || tab.pendingUrl === details.url)) {
+                        await chrome.tabs.update(details.tabId, { url: rewritten });
+                    }
+                } catch (error) {
+                    if (!isMissingTabError(error)) console.error('Error returning to mirror login:', error);
+                }
+            }
+        }
     } else if (isLogoutPath(url.pathname)) {
         setLoginGrace(details.tabId, false).catch(function () { });
     }
 });
 
-chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
-    if (!msg || msg.type !== 'TS_SWITCHER_BYPASS') {
-        return;
-    }
-    const tabId = msg.tabId;
-    const ttlMs = msg.ttlMs || 8000;
-    addBypassForTab(tabId, ttlMs).then(function () {
-        sendResponse && sendResponse({ ok: true });
-    }).catch(function () {
-        sendResponse && sendResponse({ ok: false });
-    });
-    return true; // keep the message channel open for sendResponse
+chrome.webNavigation.onCompleted.addListener(function (details) {
+    if (details.frameId !== 0) return;
+    navigationVersions.set(details.tabId, {});
+    // Unlike tabs.onUpdated complete, this event excludes browser error pages.
+    Settings.clearFallbackForTab(details.tabId);
 });
 
-bootstrap();
+const ready = bootstrap();

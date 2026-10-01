@@ -1,15 +1,37 @@
 'use strict';
 
-let saveTimer = null;
+const optionsApi = (typeof browser !== 'undefined') ? browser : chrome;
+let refreshVersion = 0;
+let saveVersion = 0;
+let pendingSaves = 0;
 
 document.addEventListener('DOMContentLoaded', async function () {
-    const settings = await Settings.load();
-    buildPreferredSelect(settings.preferredTsHost);
-    document.getElementById('opt-fallback').checked = settings.fallbackOnError;
-    buildHostsTable(settings);
-    document.getElementById('opt-preferred').addEventListener('change', scheduleSave);
-    document.getElementById('opt-fallback').addEventListener('change', scheduleSave);
+    buildPreferredSelect('off');
+    buildHostsTable(Settings.getDefaults());
+    document.getElementById('opt-preferred').addEventListener('change', saveFromForm);
+    document.getElementById('opt-fallback').addEventListener('change', saveFromForm);
+    optionsApi.storage.onChanged.addListener(function (changes, area) {
+        if (area === 'local' && changes[Settings.STORAGE_KEY]) {
+            refreshOptions().catch(function (error) { showStatus(error.message, true); });
+        }
+    });
+    await refreshOptions();
 });
+
+async function refreshOptions() {
+    const version = ++refreshVersion;
+    // Keep the user's current controls while their writes are in flight. The
+    // last completed write reloads every field, including external changes.
+    if (pendingSaves) return;
+    const settings = await Settings.load();
+    if (version !== refreshVersion || pendingSaves) return;
+    document.getElementById('opt-preferred').value = settings.preferredTsHost;
+    document.getElementById('opt-fallback').checked = settings.fallbackOnError;
+    document.querySelectorAll('#hosts-tbody input[data-host]').forEach(function (cb) {
+        const map = cb.dataset.kind === 'switch' ? settings.visibleSwitchHosts : settings.visibleCopyHosts;
+        cb.checked = map[cb.dataset.host] !== false;
+    });
+}
 
 function buildPreferredSelect(current) {
     const select = document.getElementById('opt-preferred');
@@ -42,7 +64,7 @@ function buildHostsTable(settings) {
         swCb.dataset.host = host;
         swCb.dataset.kind = 'switch';
         swCb.checked = settings.visibleSwitchHosts[host] !== false;
-        swCb.addEventListener('change', scheduleSave);
+        swCb.addEventListener('change', saveFromForm);
         swTd.appendChild(swCb);
         tr.appendChild(swTd);
 
@@ -52,7 +74,7 @@ function buildHostsTable(settings) {
         cpCb.dataset.host = host;
         cpCb.dataset.kind = 'copy';
         cpCb.checked = settings.visibleCopyHosts[host] !== false;
-        cpCb.addEventListener('change', scheduleSave);
+        cpCb.addEventListener('change', saveFromForm);
         cpTd.appendChild(cpCb);
         tr.appendChild(cpTd);
 
@@ -76,40 +98,43 @@ function buildHostsTable(settings) {
     });
 }
 
-function scheduleSave() {
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveFromForm, 300);
-}
-
-async function saveFromForm() {
-    const preferred = document.getElementById('opt-preferred').value;
-    const fallbackOnError = document.getElementById('opt-fallback').checked;
-    const visibleSwitchHosts = {};
-    const visibleCopyHosts = {};
-
-    document.querySelectorAll('#hosts-tbody input[data-host]').forEach(function (cb) {
-        const host = cb.dataset.host;
-        if (cb.dataset.kind === 'switch') {
-            visibleSwitchHosts[host] = cb.checked;
-        } else {
-            visibleCopyHosts[host] = cb.checked;
-        }
-    });
-
-    if (preferred !== 'off' && visibleSwitchHosts[preferred] === false) {
-        showStatus('Нельзя выбрать скрытый хост как предпочитаемый. Включите переключение для него.', true);
-        const settings = await Settings.load();
-        document.getElementById('opt-preferred').value = settings.preferredTsHost;
+async function saveFromForm(event) {
+    // Capture only this edit before awaiting: another page may have newer values.
+    const target = event.target;
+    const partial = {};
+    if (target === document.getElementById('opt-preferred')) {
+        partial.preferredTsHost = target.value;
+    } else if (target === document.getElementById('opt-fallback')) {
+        partial.fallbackOnError = target.checked;
+    } else if (target.dataset.host) {
+        const key = target.dataset.kind === 'switch' ? 'visibleSwitchHosts' : 'visibleCopyHosts';
+        partial[key] = { [target.dataset.host]: target.checked };
+    } else {
         return;
     }
-
-    await Settings.save({
-        preferredTsHost: preferred,
-        fallbackOnError: fallbackOnError,
-        visibleSwitchHosts: visibleSwitchHosts,
-        visibleCopyHosts: visibleCopyHosts
-    });
-    showStatus('Сохранено');
+    const version = ++saveVersion;
+    pendingSaves++;
+    ++refreshVersion; // Invalidate reads started before this edit.
+    try {
+        const saved = await Settings.save(partial);
+        if (version !== saveVersion) return;
+        if (partial.preferredTsHost && partial.preferredTsHost !== 'off' && saved.preferredTsHost !== partial.preferredTsHost) {
+            showStatus('Нельзя выбрать скрытый хост как предпочитаемый. Включите переключение для него.', true);
+        } else {
+            showStatus('Сохранено');
+        }
+    } catch (error) {
+        if (version === saveVersion) showStatus('Не удалось сохранить настройки: ' + error.message, true);
+    } finally {
+        pendingSaves--;
+        if (pendingSaves === 0) {
+            try {
+                await refreshOptions();
+            } catch (error) {
+                showStatus('Не удалось обновить настройки: ' + error.message, true);
+            }
+        }
+    }
 }
 
 function showStatus(text, isError) {

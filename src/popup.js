@@ -83,8 +83,14 @@ async function onPreferredChange() {
         select.value = settings.preferredTsHost;
         return;
     }
-    settings = await Settings.setPreferredTsHost(value);
-    await refreshPopup();
+    try {
+        settings = await Settings.setPreferredTsHost(value);
+        await refreshPopup();
+    } catch (error) {
+        console.error('Settings error:', error);
+        select.value = settings.preferredTsHost;
+        alert('Не удалось сохранить настройку. Попробуйте ещё раз.');
+    }
 }
 
 async function refreshPopup() {
@@ -110,7 +116,7 @@ async function refreshPopup() {
 
         const url = new URL(tab.url);
         const newHost = url.hostname;
-        const newPath = url.pathname + url.search;
+        const newPath = url.pathname + url.search + url.hash;
         const hostOrPathChanged = newHost !== currentHost || newPath !== currentPath;
 
         if (hostOrPathChanged) {
@@ -165,7 +171,7 @@ async function renderFallbackBanner() {
     }
 
     const key = fallback
-        ? [currentTabId, fallback.failedHost, fallback.path || '', settings.preferredTsHost, settings.fallbackOnError].join('|')
+        ? [currentTabId, fallback.failedHost, fallback.path || '', settings.preferredTsHost, settings.fallbackOnError, visibilityKey(settings.visibleSwitchHosts)].join('|')
         : 'none';
 
     if (key === lastFallbackKey) {

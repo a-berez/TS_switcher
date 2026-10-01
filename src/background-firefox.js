@@ -1,5 +1,6 @@
 // Background script for Firefox (Manifest V2)
 // sites.js and settings.js are loaded via manifest background.scripts order
+Settings.initializeBackground();
 
 const ICON_PATHS = {
     normal: {
@@ -23,9 +24,9 @@ let cachedPreferred = 'off';
 let cachedFallbackOnError = true;
 
 const loginGraceTabs = new Set();
-const bypassTabs = new Set();
-const bypassTimeouts = new Map();
 const lastTsHostByTab = new Map();
+const navigationVersions = new Map();
+let settingsQueue = Promise.resolve();
 const ORIGINAL_TS_HOST = Sites.TS_HOSTS[0];
 const DIRECT_PARAM = 'ts_switcher_direct';
 
@@ -66,23 +67,16 @@ function resolveInfoLoginTarget(tabId) {
     return null;
 }
 
-function addBypassForTab(tabId, ttlMs) {
-    if (tabId === undefined) return;
-    bypassTabs.add(tabId);
-    if (bypassTimeouts.has(tabId)) {
-        clearTimeout(bypassTimeouts.get(tabId));
-    }
-    const timeoutId = setTimeout(function () {
-        bypassTabs.delete(tabId);
-        bypassTimeouts.delete(tabId);
-    }, ttlMs);
-    bypassTimeouts.set(tabId, timeoutId);
-}
-
-async function refreshCachedSettings() {
-    const settings = await Settings.load();
-    cachedPreferred = settings.preferredTsHost;
-    cachedFallbackOnError = settings.fallbackOnError;
+function refreshCachedSettings() {
+    const update = settingsQueue.then(async function () {
+        const settings = await Settings.load();
+        cachedPreferred = settings.preferredTsHost;
+        cachedFallbackOnError = settings.fallbackOnError;
+    });
+    settingsQueue = update.catch(function (error) {
+        console.error('Error loading redirect settings:', error);
+    });
+    return settingsQueue;
 }
 
 async function setIcon(tabId, enabled, isRatingSite) {
@@ -123,17 +117,20 @@ async function updateIcon(tabId) {
     }
 }
 
-function redirectTsRequest(details) {
+async function redirectTsRequest(details) {
+    // Firefox supports a Promise from a blocking webRequest listener.
+    await ready;
+    await settingsQueue;
     try {
         const url = new URL(details.url);
         rememberTsHost(details.tabId, url.hostname, url.pathname);
+        if (Sites.isTsHost(url.hostname) && isLogoutPath(url.pathname)) {
+            loginGraceTabs.delete(details.tabId);
+        }
 
         // A/B: site auth bounce to info/login → preferred or last mirror.
         if (url.hostname === ORIGINAL_TS_HOST && isLoginPath(url.pathname)) {
             if (url.searchParams.get(DIRECT_PARAM) === '1') {
-                return {};
-            }
-            if (bypassTabs.has(details.tabId)) {
                 return {};
             }
             const loginTarget = resolveInfoLoginTarget(details.tabId);
@@ -169,9 +166,13 @@ function redirectTsRequest(details) {
 }
 
 async function handleLoadError(details) {
-    if (details.frameId !== 0) {
+    if (details.frameId !== 0 || /(?:ERR_ABORTED|NS_BINDING_ABORTED)/.test(details.error || '')) {
         return;
     }
+    const version = navigationVersions.get(details.tabId) || {};
+    navigationVersions.set(details.tabId, version);
+    await ready;
+    await settingsQueue;
     let hostname;
     try {
         hostname = new URL(details.url).hostname;
@@ -181,7 +182,8 @@ async function handleLoadError(details) {
     if (!Sites.isTsHost(hostname)) {
         return;
     }
-    if (cachedPreferred !== 'off' || !cachedFallbackOnError) {
+    if (navigationVersions.get(details.tabId) !== version
+        || cachedPreferred !== 'off' || !cachedFallbackOnError) {
         return;
     }
 
@@ -203,6 +205,9 @@ async function bootstrap() {
                     try {
                         const u = new URL(tab.url);
                         rememberTsHost(tab.id, u.hostname, u.pathname);
+                        if (Sites.isTsHost(u.hostname) && isLoginPath(u.pathname)) {
+                            loginGraceTabs.add(tab.id);
+                        }
                     } catch {
                         // ignore
                     }
@@ -241,20 +246,11 @@ browser.tabs.onActivated.addListener(function (activeInfo) {
 browser.tabs.onRemoved.addListener(function (tabId) {
     lastTsHostByTab.delete(tabId);
     loginGraceTabs.delete(tabId);
-    bypassTabs.delete(tabId);
+    navigationVersions.delete(tabId);
+    Settings.clearFallbackForTab(tabId);
 });
 
 browser.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-    if (changeInfo.status === 'complete' && tab && tab.url) {
-        try {
-            const hostname = new URL(tab.url).hostname;
-            if (Sites.isTsHost(hostname)) {
-                Settings.clearFallbackForTab(tabId);
-            }
-        } catch {
-            // ignore
-        }
-    }
     if ((changeInfo.status === 'complete' || changeInfo.url) && tab && tab.url) {
         updateIcon(tabId);
     }
@@ -285,12 +281,15 @@ browser.webNavigation.onCommitted.addListener(function (details) {
     }
 });
 
-browser.runtime.onMessage.addListener(function (msg) {
-    if (!msg || msg.type !== 'TS_SWITCHER_BYPASS') {
-        return;
-    }
-    addBypassForTab(msg.tabId, msg.ttlMs || 8000);
-    return Promise.resolve({ ok: true });
+browser.webNavigation.onBeforeNavigate.addListener(function (details) {
+    if (details.frameId !== 0) return;
+    navigationVersions.set(details.tabId, {});
 });
 
-bootstrap();
+browser.webNavigation.onCompleted.addListener(function (details) {
+    if (details.frameId !== 0) return;
+    navigationVersions.set(details.tabId, {});
+    Settings.clearFallbackForTab(details.tabId);
+});
+
+const ready = bootstrap();

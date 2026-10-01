@@ -10,7 +10,7 @@
         var url = new URL(window.location.href);
         if (url.searchParams.get(DIRECT_PARAM) === '1') {
             url.searchParams.delete(DIRECT_PARAM);
-            window.history.replaceState({}, document.title, url.toString());
+            window.history.replaceState(window.history.state, document.title, url.toString());
         }
     } catch {
         // ignore
