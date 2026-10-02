@@ -4,7 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Настройки TS_switcher</title>
+    <link rel="stylesheet" href="fonts.css">
+    <link rel="stylesheet" href="popup-themes.css">
+    <link rel="stylesheet" href="theme-overrides.css">
     <link rel="stylesheet" href="options.css">
+    <script src="sites.js"></script>
+    <script src="theme.js"></script>
+    <script src="popup-theme.js"></script>
+    <script src="options-theme.js"></script>
 </head>
 <body>
     <main class="wrap">
@@ -39,10 +46,28 @@
             </table>
         </section>
 
+        <section class="card">
+            <h2>Оформление расширения</h2>
+            <label class="field"><span>ТС: светлая / тёмная</span>
+                <select id="opt-ts-scheme"><option value="auto">Автоматически — как на сайте</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select>
+            </label>
+            <label class="field"><span>ТС: тема</span>
+                <select id="opt-ts-theme"><option value="auto">Как на сайте</option><option value="classic">Classic</option><option value="oldschool">Oldschool</option><option value="catppuccin">Catppuccin</option><option value="colorblind" disabled>Для дальтоников — ожидается палитра</option></select>
+            </label>
+            <p class="hint">Тема для дальтоников появится в светлом и тёмном вариантах после обновления палитр.</p>
+            <label class="field"><span>ТС: повышенная контрастность</span>
+                <select id="opt-ts-contrast"><option value="auto">Как на сайте</option><option value="normal">Выключена</option><option value="more">Включена</option></select>
+            </label>
+            <p class="hint">Автоматическая повышенная контрастность появится с обновлением тем ТС. Пока её можно включить вручную.</p>
+            <label class="field"><span>Сайты рейтингов: светлая / тёмная</span>
+                <select id="opt-rating-scheme"><option value="auto">Автоматически</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select>
+            </label>
+            <p class="hint">На gg автоматический режим следует теме сайта, на остальных рейтингах — браузеру / ОС. Все рейтинги используют палитру gg. Ручной выбор меняет попап и эту страницу, не затрагивая сами сайты. Эта страница использует оформление активного или последнего выбранного поддерживаемого сайта в этом окне; если таких вкладок нет — настройки ТС. Если тема ТС недоступна, автоматические настройки используют Classic и системный режим; ручной выбор сохраняется.</p>
+        </section>
+
         <p id="save-status" class="save-status" aria-live="polite"></p>
     </main>
 
-    <script src="sites.js"></script>
     <script src="settings.js"></script>
     <script src="options.js"></script>
 </body>

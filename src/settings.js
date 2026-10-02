@@ -54,6 +54,10 @@ const Settings = (function () {
     function getDefaults() {
         return {
             preferredTsHost: 'off',
+            tsColorScheme: 'auto',
+            tsTheme: 'auto',
+            tsContrast: 'auto',
+            ratingColorScheme: 'auto',
             fallbackOnError: true,
             visibleSwitchHosts: defaultHostMap(true),
             visibleCopyHosts: defaultHostMap(true)
@@ -74,6 +78,15 @@ const Settings = (function () {
         if (merged.preferredTsHost !== 'off' && merged.visibleSwitchHosts[merged.preferredTsHost] === false) {
             merged.preferredTsHost = 'off';
         }
+        const themeValues = {
+            tsColorScheme: ['auto', 'light', 'dark'],
+            tsTheme: ['auto', 'classic', 'oldschool', 'catppuccin'],
+            tsContrast: ['auto', 'normal', 'more'],
+            ratingColorScheme: ['auto', 'light', 'dark']
+        };
+        Object.entries(themeValues).forEach(function ([key, values]) {
+            if (!values.includes(merged[key])) merged[key] = 'auto';
+        });
         return merged;
     }
 

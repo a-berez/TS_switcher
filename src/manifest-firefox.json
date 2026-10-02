@@ -32,7 +32,11 @@
     "open_in_tab": true
   },
   "background": {
-    "scripts": ["sites.js", "settings.js", "background-firefox.js"],
+    "scripts": [
+      "sites.js",
+      "settings.js",
+      "background-firefox.js"
+    ],
     "persistent": true
   },
   "content_scripts": [
@@ -47,7 +51,11 @@
         "https://chgk.quest/*",
         "https://elo-chgk.uk/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "sites.js",
+        "theme.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -60,7 +68,9 @@
     "gecko": {
       "id": "ts-switcher@chgk.info",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   }

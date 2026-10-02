@@ -32,6 +32,7 @@ function bindLiveUpdates() {
     if (api.tabs && api.tabs.onUpdated) {
         api.tabs.onUpdated.addListener(function (tabId, changeInfo) {
             if (currentTabId != null && tabId !== currentTabId) return;
+            PopupTheme.invalidate(tabId, changeInfo);
             if (changeInfo.url || changeInfo.status === 'complete' || changeInfo.status === 'loading') {
                 queueRefresh();
             }
@@ -39,6 +40,7 @@ function bindLiveUpdates() {
     }
     if (api.tabs && api.tabs.onActivated) {
         api.tabs.onActivated.addListener(function () {
+            PopupTheme.clear();
             queueRefresh();
         });
     }
@@ -110,9 +112,11 @@ async function refreshPopup() {
         const tabs = await api.tabs.query({ active: true, currentWindow: true });
         const tab = tabs[0];
         if (!tab || !tab.url) {
+            PopupTheme.clear();
             return;
         }
         currentTabId = tab.id;
+        PopupTheme.update(tab, settings);
 
         const url = new URL(tab.url);
         const newHost = url.hostname;

@@ -45,6 +45,8 @@
         "https://elo-chgk.uk/*"
       ],
       "js": [
+        "sites.js",
+        "theme.js",
         "content.js"
       ],
       "run_at": "document_idle"

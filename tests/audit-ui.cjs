@@ -39,17 +39,18 @@ function storageBus() {
 }
 function environment(files=[],shared) {
   const bus=shared||storageBus(), data=bus.data, elements=new Map(), domEvents={}, written=[], navigations=[];
-  const getElement=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
+  const getElement=id=>{if(!elements.has(id))elements.set(id,Object.assign(new Element(),{id}));return elements.get(id);};
   const descendants=e=>e.children.flatMap(c=>[c,...descendants(c)]);
   const state={tabUrl:'https://rating.pecheny.me/teams/42?year=2026#results'};
   const context=vm.createContext({URL,URLSearchParams,console,Date,setTimeout:()=>1,clearTimeout(){},alert(){},
     document:{addEventListener:(n,f)=>{domEvents[n]=f;},getElementById:getElement,createElement:t=>new Element(t),
-      querySelector:getElement,querySelectorAll:()=>descendants(getElement('hosts-tbody')).filter(e=>e.tag==='input'),body:new Element()},
+      querySelector:getElement,querySelectorAll:()=>descendants(getElement('hosts-tbody')).filter(e=>e.tag==='input'),body:new Element(),documentElement:new Element()},
+    window:{matchMedia:()=>({matches:false,addEventListener(){}}),addEventListener(){}},
     navigator:{clipboard:{async writeText(t){written.push(t);}}},
     chrome:{storage:{local:bus.storage,session:bus.storage,onChanged:{addListener:f=>bus.changed.push(f)}},runtime:bus.runtime,tabs:{
       async query(){return [{id:1,url:state.tabUrl}];},
       async update(id,info){navigations.push({id,...info});}}}});
-  for(const f of ['sites.js','settings.js',...files])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',f),'utf8'),context,{filename:f});
+  for(const f of ['sites.js','settings.js','theme.js',...(files.includes('popup.js')||files.includes('options.js')?['popup-theme.js']:[]),...(files.includes('options.js')?['options-theme.js']:[]),...files])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',f),'utf8'),context,{filename:f});
   const result={bus,data,state,getElement,domEvents,written,navigations,context,run:s=>vm.runInContext(s,context)};
   if(!shared)result.run('Settings.initializeBackground()');
   return result;
@@ -67,6 +68,18 @@ function environment(files=[],shared) {
     check(sites.hasExactPath(p[a],hosts[a],hosts[b]),true);
     check(sites.convertPath(p[a],hosts[a],hosts[b]),p[b]+(a===4 && b<4 && p[a]!=='/b/' ? '/' : ''));
   }
+  // Modern TS tournament route, including trailing slash and subpages.
+  const tournamentTargets=['/b/tournament/13362/','/tournament/13362','/tournament/13362','/tournaments/13362'];
+  for(const host of sites.TS_HOSTS)for(const input of ['/tournaments/13362','/tournaments/13362/','/tournaments/13362/results?round=2#team','/tournament/13362?round=2#team']){
+    sites.RATING_HOSTS.forEach((target,index)=>{
+      check(sites.hasExactPath(input,host,target),true);
+      check(sites.convertPath(input,host,target),tournamentTargets[index]);
+    });
+    sites.TS_HOSTS.forEach(target=>check(sites.convertPath(input,host,target),input));
+  }
+  for(const host of sites.TS_HOSTS)for(const input of ['/tournaments','/tournaments/13362extra','/tournaments/search']){
+    check(sites.hasExactPath(input,host,'rating.chgk.gg'),false);
+  }
   check(sites.convertPath('/players/42/results?x=1#rank',hosts[0],hosts[1]),'/players/42/results?x=1#rank');
   check(sites.convertPath('/players/42/results?x=1#rank',hosts[0],hosts[4]),'/b/player/42/');
   check(sites.hasExactPath('/news',hosts[0],hosts[4]),false);
@@ -78,6 +91,11 @@ function environment(files=[],shared) {
   check(await e.run('Settings.getFallbackForTab(1)'),null);
   check(e.data.loadFallbacks['1'],undefined);
   const popup=environment(['popup.js']);
+  popup.state.tabUrl='https://rating.chgk.info/tournaments/13362';
+  await popup.run('refreshPopup()');
+  check(popup.getElement('switch-rating-buttons').children.length,4);
+  check(popup.getElement('copy-rating-row').children.length,4);
+  popup.state.tabUrl='https://rating.pecheny.me/teams/42?year=2026#results';
   await popup.run('refreshPopup()');
   await popup.run('copyUrlForHost("rating.pecheny.kz")');
   check(popup.written[0],'https://rating.pecheny.kz/teams/42?year=2026#results');
@@ -197,6 +215,27 @@ function environment(files=[],shared) {
   popup.state.tabUrl='https://rating.pecheny.me/teams/42?year=2026#new-results';
   await popup.run('refreshPopup()');
   check(popup.getElement('copy-ts-row').children[0].title,'https://rating.chgk.info/teams/42?year=2026#new-results');
+  // New fields use the same single-writer queue and independent partial edits.
+  const themeCases = [['opt-ts-scheme','tsColorScheme','dark'], ['opt-ts-theme','tsTheme','catppuccin'],
+    ['opt-ts-contrast','tsContrast','more'], ['opt-rating-scheme','ratingColorScheme','light']];
+  for (const [id,key,value] of themeCases) {
+    const field=options.getElement(id);field.value=value;
+    await options.run('saveFromForm')({target:field});
+    check(shared.data.tsSwitcherSettings[key],value);
+  }
+  await Promise.all([popupWriter.run('Settings.save({tsColorScheme:"light"})'),options.run('Settings.save({ratingColorScheme:"dark"})')]);
+  check(shared.data.tsSwitcherSettings.tsColorScheme,'light');
+  check(shared.data.tsSwitcherSettings.ratingColorScheme,'dark');
+  check(shared.data.tsSwitcherSettings.tsTheme,'catppuccin');
+  check(shared.data.tsSwitcherSettings.tsContrast,'more');
+  const field=options.getElement('opt-ts-theme');field.value='oldschool';shared.failNextSet=true;
+  await options.run('saveFromForm')({target:field});
+  check(field.value,'catppuccin');
+  check(options.getElement('save-status').textContent.includes('Не удалось сохранить'),true);
+  for (const key of ['tsColorScheme','tsTheme','tsContrast','ratingColorScheme']) {
+    await e.run(`Settings.save({${key}:"invalid"})`);
+    check((await e.run('Settings.load()'))[key],'auto');
+  }
   const content=environment();
   content.context.window={location:{href:'https://rating.pecheny.me/teams/42?ts_switcher_direct=1#rank'},
     history:{state:{siteRoute:'teams'},replaceState(state,title,url){this.state=state;this.url=url;}}};

@@ -31,6 +31,8 @@ jobs:
 
       - name: Check extension and isolated builds
         run: |
+          python tools/generate-themes.py --check
+          node tests/audit-themes.cjs
           node tests/audit-ui.cjs
           node tests/audit-background.cjs
           python tests/audit-build.py
@@ -79,7 +81,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "plain_version=$PLAIN_VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Extract release notes from README
+      - name: Extract release notes from CHANGELOG
         if: steps.prepare.outputs.should_release == 'true'
         id: changelog
         env:
@@ -89,10 +91,12 @@ jobs:
           import os, re, pathlib
 
           version = os.environ["VERSION"].lstrip("v")
-          readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+          # Beta builds share the cumulative notes for their release.
+          version = re.sub(r"-beta\.\d+$", "", version)
+          changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
 
           pattern = rf"### Версия {re.escape(version)}\n((?:.|\n)*?)(?:\n### Версия |\n## |\Z)"
-          m = re.search(pattern, readme)
+          m = re.search(pattern, changelog)
           # Если блок для этой версии не найден, оставляем описание пустым,
           # чтобы релиз создался без текста.
           notes = (m.group(1).strip() if m else "")

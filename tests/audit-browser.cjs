@@ -25,6 +25,14 @@ function check(name,pass,details){results.push({name,status:pass?'PASS':'FAIL',d
  check('Copy current host retains fragment',state.copyTitle?.endsWith('#row'),state.copyTitle);
  const titles=await popup.locator('#copy-rating-row button').evaluateAll(nodes=>nodes.map(n=>n.title));
  check('Rating links use canonical entity paths',JSON.stringify(titles)===JSON.stringify(['https://rating.chgk.gg/b/player/123/','https://rating.chgk.fun/player/123','https://chgk.quest/player/123','https://elo-chgk.uk/players/123']),titles);
+ await source.goto('https://rating.chgk.info/tournaments/13362');await popup.evaluate(()=>refreshPopup());
+ await popup.waitForFunction(()=>currentPath==='/tournaments/13362'&&!refreshInFlight&&!refreshQueued);
+ const tournamentLinks=await popup.locator('#switch-rating-buttons button').evaluateAll(nodes=>nodes.map(n=>n.title));
+ check('Plural tournament route shows all rating switches',JSON.stringify(tournamentLinks)===JSON.stringify(['https://rating.chgk.gg/b/tournament/13362/','https://rating.chgk.fun/tournament/13362','https://chgk.quest/tournament/13362','https://elo-chgk.uk/tournaments/13362']),tournamentLinks);
+ const tournamentCopies=await popup.locator('#copy-rating-row button').evaluateAll(nodes=>nodes.map(n=>n.title));
+ check('Plural tournament route shows all rating copies',JSON.stringify(tournamentCopies)===JSON.stringify(tournamentLinks),tournamentCopies);
+ await popup.locator('#switch-rating-buttons button').first().click();await source.waitForURL('https://rating.chgk.gg/b/tournament/13362/');
+ check('Tournament switch navigates to the same tournament',source.url()==='https://rating.chgk.gg/b/tournament/13362/',source.url());
  await source.goto('https://rating.pecheny.me/venues/5508?x=1');await popup.evaluate(()=>refreshPopup());
  state=await popup.evaluate(()=>({switchCount:document.querySelectorAll('#switch-ts-buttons button,#switch-rating-buttons button').length,copyCount:document.querySelectorAll('.copy-row button').length}));
  check('Unknown TS path offers only TS hosts',state.switchCount===3&&state.copyCount===4,state);

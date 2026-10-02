@@ -1,0 +1,53 @@
+/* rating-ui 7ba7b05: Tailwind 3.4.14 gray/slate/blue, mapped to popup roles.
+   Mapping, sources and additional state colors: docs/popup-themes-plan.md. */
+:root[data-theme-group=rating] {
+    --bg-page: #fff; --bg-surface: #fff; --bg-surface-alt: #f3f4f6;
+    --bg-elevated: #e5e7eb; --bg-input: #fff; --bg-strong: #dbeafe;
+    --text: #000; --text-strong: #000; --text-muted: #4b5563;
+    --border: #d1d5db; --border-input: #d1d5db; --border-strong: #6b7280;
+    --link: #1d4ed8; --link-hover: #1e40af;
+    --info-bg: #dbeafe; --info-text: #1e40af; --info-border: #93c5fd;
+    --success-bg: #dcfce7; --success-text: #166534; --success-border: #166534;
+    --warning-bg: #fef3c7; --warning-text: #92400e; --warning-border: #92400e;
+}
+:root[data-theme-group=rating][data-bs-theme=dark] {
+    --bg-page: #111827; --bg-surface: #111827; --bg-surface-alt: #374151;
+    --bg-elevated: #1f2937; --bg-input: #1f2937; --bg-strong: #4b5563;
+    --text: #f1f5f9; --text-strong: #f1f5f9; --text-muted: #d1d5db;
+    --border: #4b5563; --border-input: #4b5563; --border-strong: #9ca3af;
+    --link: #93c5fd; --link-hover: #bfdbfe;
+    --info-bg: #1f2937; --info-text: #bfdbfe; --info-border: #1e3a8a;
+    --success-bg: #14532d; --success-text: #dcfce7; --success-border: #86efac;
+    --warning-bg: #451a03; --warning-text: #fef3c7; --warning-border: #fcd34d;
+}
+:root[data-theme-group=rating] .switch-btn:hover { background: #d1d5db; }
+:root[data-theme-group=rating][data-bs-theme=dark] .switch-btn:hover { background: #374151; }
+
+/* Independent high-contrast layer. Future site tokens can replace this layer. */
+:root[data-theme-group=ts][data-site-theme][data-bs-theme][data-contrast=more] {
+    --contrast-bg: #fff; --contrast-fg: #000;
+    --bg-page: var(--contrast-bg); --bg-surface: var(--contrast-bg);
+    --bg-surface-alt: var(--contrast-bg); --bg-elevated: var(--contrast-bg);
+    --bg-input: var(--contrast-bg); --bg-strong: var(--contrast-bg);
+    --text: var(--contrast-fg); --text-strong: var(--contrast-fg); --text-muted: var(--contrast-fg);
+    --border: var(--contrast-fg); --border-input: var(--contrast-fg); --border-strong: var(--contrast-fg);
+    --link: var(--contrast-fg); --link-hover: var(--contrast-fg);
+    --info-bg: var(--contrast-bg); --info-text: var(--contrast-fg); --info-border: var(--contrast-fg);
+    --success-bg: var(--contrast-bg); --success-text: var(--contrast-fg); --success-border: var(--contrast-fg);
+    --danger-text: var(--contrast-fg);
+    --warning-bg: var(--contrast-bg); --warning-text: var(--contrast-fg); --warning-border: var(--contrast-fg);
+    --shadow-sm: none;
+}
+:root[data-theme-group=ts][data-site-theme][data-bs-theme][data-contrast=more][data-bs-theme=dark] { --contrast-bg: #000; --contrast-fg: #fff; }
+:root[data-contrast=more] button:hover { text-decoration: underline; }
+:root[data-contrast=more] button, :root[data-contrast=more] select { border-width: 2px; }
+
+/* TS copy buttons retain their own theme inside the rating palette. */
+:root[data-theme-group=rating][data-copy-ts-theme][data-copy-ts-scheme][data-copy-ts-contrast=more] {
+    --copy-ts-bg: #fff; --copy-ts-text: #000; --copy-ts-border: #000;
+    --copy-ts-hover-bg: #fff; --copy-ts-hover-text: #000; --copy-ts-focus: #000;
+}
+:root[data-theme-group=rating][data-copy-ts-theme][data-copy-ts-scheme=dark][data-copy-ts-contrast=more] {
+    --copy-ts-bg: #000; --copy-ts-text: #fff; --copy-ts-border: #fff;
+    --copy-ts-hover-bg: #000; --copy-ts-hover-text: #fff; --copy-ts-focus: #fff;
+}

@@ -71,11 +71,12 @@ const Sites = (function () {
         const { pathname } = splitPath(path);
 
         if (isTsHost(host)) {
-            const m = pathname.match(/^\/(player|players|tournament|teams)\/(\d+)(\/.*)?$/);
+            const m = pathname.match(/^\/(player|players|tournament|tournaments|teams)\/(\d+)(\/.*)?$/);
             if (!m) return null;
             const type = m[1] === 'teams' ? PAGE_TYPES.TEAM
                 : m[1] === 'players' ? PAGE_TYPES.PLAYER
-                    : m[1];
+                    : m[1] === 'tournaments' ? PAGE_TYPES.TOURNAMENT
+                        : m[1];
             return { type, id: m[2], tail: m[3] || '' };
         }
 
@@ -177,7 +178,8 @@ const Sites = (function () {
     }
 
     function convertPath(path, fromHost, toHost) {
-        if (fromHost === toHost) return path;
+        // TS mirrors share the entire route, including aliases and subpages.
+        if (fromHost === toHost || (isTsHost(fromHost) && isTsHost(toHost))) return path;
 
         const { suffix } = splitPath(path);
         const fullSuffix = suffixForTarget(suffix, fromHost);
@@ -189,11 +191,8 @@ const Sites = (function () {
 
         const info = getPageInfo(path, fromHost);
         if (!info) {
-            // TS mirrors share path layout; keep /venues etc. Cross-family / rating→rating
-            // without a known page type falls back to home (callers should hide those buttons).
-            if (isTsHost(fromHost) && isTsHost(toHost)) {
-                return path;
-            }
+            // Unknown cross-family/rating routes have no exact mapping;
+            // callers hide those buttons instead of navigating to this fallback.
             return getDefaultHome(toHost) + (toRating ? '' : fullSuffix);
         }
 

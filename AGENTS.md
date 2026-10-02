@@ -7,16 +7,18 @@ User-facing conversation: русский.
 ## Pointers
 
 - Архитектура и границы: `docs/architecture.md` — перед сменой доменов, манифестов, правил URL.
+- Темы, источники палитр и подключение будущего CSS: `docs/popup-themes-plan.md` и раздел тем в `docs/architecture.md` — перед изменением оформления или признаков темы сайта.
 - Текущее состояние: `docs/status.md` — перед продолжением открытой задачи.
 - Открытая передача: `docs/handoff.md` — если задача не закрыта.
-- Вход человека и changelog: `README.md`.
+- Вход человека и краткие изменения понятным пользователю языком: `README.md`.
+- Полная история версий и источник описаний выпусков для CI: `CHANGELOG.md`.
 - Сборка: `build.py` — ZIP для Chromium и Firefox.
 - Проверки: `tests/README.md` — перед изменениями поведения и выпуском.
 - Решения: `docs/decisions/2026-10-01-background-state.md` — перед изменением записи настроек или времени жизни background.
 
 ## Conventions the code does not say
 
-- Логика переключения и копирования ссылок живёт в `src/popup.js`. Обновление попапа — по `tabs`/`storage` событиям, без polling; DOM кнопок пересобирается только при смене ключа (хост/путь/видимость/fallback). Content script только снимает query-маркер one-shot bypass.
+- Логика переключения и копирования ссылок живёт в `src/popup.js`. Обновление попапа — по `tabs`/`storage` событиям, без polling; DOM кнопок пересобирается только при смене ключа (хост/путь/видимость/fallback). Content script снимает one-shot bypass и отдаёт тему верхнего документа по соединению с попапом или options; наблюдение работает только при открытом соединении.
 - Chromium: Manifest V3, `chrome.action.setIcon`. Firefox: Manifest V2 с постоянным background; смена иконки не делается (`setIcon` — no-op).
 - Версия релиза `1.0.0-beta.N` упаковывается как `1.0.0.N`. `build.py` задаёт версию внутри ZIP, исходные manifest не меняет и понижение версии отвергает.
 - Записи `Settings` проходят через единую очередь background (`initializeBackground`); UI отправляет частичные изменения runtime-сообщением. Прямые записи общего объекта из UI возвращают гонки.
@@ -32,7 +34,7 @@ User-facing conversation: русский.
 
 ## Verify
 
-- Быстрые проверки: `node tests/audit-ui.cjs`, `node tests/audit-background.cjs`, `python tests/audit-build.py`.
+- Быстрые проверки: `python tools/generate-themes.py --check`, `node tests/audit-themes.cjs`, `node tests/audit-ui.cjs`, `node tests/audit-background.cjs`, `python tests/audit-build.py`.
 - Настоящие браузеры и зависимости: `tests/README.md`. Ручная проверка: Chromium загрузить `src`; Firefox собрать `python build.py` и установить ZIP временно. Сценарии: 8 хостов, preferred `.ru`, вход/выход, fallback, options.
 
 ## Secrets and privacy

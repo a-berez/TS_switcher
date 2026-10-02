@@ -30,6 +30,8 @@ def check_packages(work, expected_version):
     for browser in ("chromium", "firefox"):
         with zipfile.ZipFile(work / f"TS_switcher-{browser}.zip") as bundle:
             assert bundle.testzip() is None
+            assert bundle.read("fonts/NotoSans-variable.ttf")[:4] == b"\x00\x01\x00\x00"
+            assert b"SIL OPEN FONT LICENSE" in bundle.read("fonts/OFL-NotoSans.txt")
             names = set(bundle.namelist())
             manifest = json.loads(bundle.read("manifest.json"))
             refs = set(manifest["icons"].values()) | {manifest["options_ui"]["page"]}
@@ -78,7 +80,7 @@ with tempfile.TemporaryDirectory(prefix="audit-build-", dir=ROOT / "tests") as t
         assert archives(work) == good_archives, f"invalid version changed outputs: {version!r}"
     print("PASS 10 invalid/downgrade versions fail before touching archives")
 
-    for filename in ("manifest.json", "manifest-firefox.json", "popup.js", "background-firefox.js", "icons/icon16_disabled.png"):
+    for filename in ("manifest.json", "manifest-firefox.json", "popup.js", "theme.js", "popup-theme.js", "popup-themes.css", "theme-overrides.css", "options-theme.js", "fonts/NotoSans-variable.ttf", "fonts/OFL-NotoSans.txt", "background-firefox.js", "icons/icon16_disabled.png"):
         resource = work / "src" / filename
         content = resource.read_bytes()
         resource.unlink()
@@ -88,7 +90,7 @@ with tempfile.TemporaryDirectory(prefix="audit-build-", dir=ROOT / "tests") as t
             assert archives(work) == good_archives, f"missing resource changed outputs: {filename}"
         finally:
             resource.write_bytes(content)
-    print("PASS 5 missing mandatory resources fail before touching archives")
+    print("PASS 12 missing mandatory resources fail before touching archives")
 
     for filename, bad_content in (
         ("manifest.json", b"{broken"),
@@ -108,6 +110,19 @@ with tempfile.TemporaryDirectory(prefix="audit-build-", dir=ROOT / "tests") as t
     print("PASS malformed manifests, wrong manifest platform and dangling HTML resources are rejected")
     assert not list(work.glob("ts-switcher-build-*")), "staging directory leaked"
 
+    # Keep README absent here: release notes must come from the detailed changelog.
+    shutil.copy2(ROOT / "CHANGELOG.md", work)
+    version_notes = {}
+    current_version = None
+    for line in (work / "CHANGELOG.md").read_text(encoding="utf-8").splitlines():
+        if line.startswith("### Версия "):
+            current_version = line.removeprefix("### Версия ")
+            assert current_version not in version_notes, f"duplicate changelog version: {current_version}"
+            version_notes[current_version] = []
+        elif current_version is not None:
+            version_notes[current_version].append(line)
+    assert version_notes, "changelog has no release sections"
+
     bash = shutil.which("bash") or "C:/Program Files/Git/bin/bash.exe"
     if Path(bash).is_file():
         for workflow in (ROOT / ".github/workflows").glob("*.yml"):
@@ -117,6 +132,21 @@ with tempfile.TemporaryDirectory(prefix="audit-build-", dir=ROOT / "tests") as t
                 script = "\n".join(line[10:] if line.startswith("          ") else line for line in block.splitlines()) + "\n"
                 checked = subprocess.run([bash, "-n"], input=script, capture_output=True, text=True)
                 assert checked.returncode == 0, checked.stderr
+                if 'id: changelog\n' in source and 'import os, re, pathlib' in script:
+                    python_step = script.split("python - << 'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+                    cases = [("v" + version, "\n".join(lines).strip()) for version, lines in version_notes.items()]
+                    release_notes = "\n".join(version_notes["1.0.0"]).strip()
+                    cases.extend((version, release_notes) for version in ("v1.0.0-beta.1", "v1.0.0-beta.8", "1.0.0-beta.99"))
+                    cases.extend((version, "") for version in ("v999.999.999", "v999.999.999-beta.8", "v1.0.0-beta.bad"))
+                    for version, expected in cases:
+                        output = work / "notes-output"
+                        output.write_text("", encoding="utf-8")
+                        case_env = dict(ENV, VERSION=version, GITHUB_OUTPUT=str(output))
+                        result = subprocess.run([sys.executable, "-c", python_step], cwd=work,
+                                                env=case_env, capture_output=True, text=True, encoding="utf-8")
+                        assert result.returncode == 0, result.stderr
+                        assert output.read_text(encoding="utf-8") == "body<<EOF\n" + expected + "\nEOF\n", version
+                    print(f"PASS {workflow.name}: release notes from CHANGELOG for {len(version_notes)} versions, cumulative beta notes and missing versions")
                 if 'body="$BODY"' in script:
                     for prev in ("", "v0.9.0"):
                         for body in ("", "Release notes"):

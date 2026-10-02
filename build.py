@@ -13,8 +13,9 @@ BASE_DIR = Path(__file__).resolve().parent
 SRC_DIR = BASE_DIR / "src"
 DEFAULT_VERSION = "1.0.0-beta.8"
 COMMON_FILES = (
+    "fonts.css", "fonts/NotoSans-variable.ttf", "fonts/OFL-NotoSans.txt", "fonts/README.md",
     "popup.html", "popup.css", "popup.js", "options.html", "options.css",
-    "options.js", "sites.js", "settings.js", "content.js", "LICENSE",
+    "theme.js", "theme-overrides.css", "options-theme.js", "popup-theme.js", "popup-themes.css", "options.js", "sites.js", "settings.js", "content.js", "LICENSE",
 )
 REQUIRED_ICONS = tuple(
     f"icons/icon{size}{suffix}.png"

@@ -53,6 +53,7 @@ async function rdp(port){
   for(let i=0;i<100;i++){if(await client.evaluate(opt,'typeof Settings')==='object')break;await delay(30);}
   const options=expression=>client.evaluateAsync(opt,expression);
   await options('refreshOptions()');
+  check('options loads bundled Noto Sans',await options(`(await document.fonts.load('400 14px "Noto Sans"','Настройки TS')).length`),1);
   check('options initializes preferred selector',await client.evaluate(opt,'document.getElementById("opt-preferred").value'),'off');
   await options('Settings.setPreferredTsHost("rating.pecheny.ru")');
   check('options saves through runtime to background',await run('(await Settings.load()).preferredTsHost'),'rating.pecheny.ru');
@@ -79,6 +80,51 @@ async function rdp(port){
   check('DNS fallback retained after error page completes',await run(`(await Settings.getFallbackForTab(${failedTab.id}))?.failedHost`),'rating.pecheny.me');
   await navigate('https://rating.pecheny.me/teams/46');
   check('successful navigation clears fallback',await run(`Settings.getFallbackForTab(${failedTab.id})`),null);
+  // Real theme ports between popup and top-frame content script.
+  await run('browser.tabs.create({url:browser.runtime.getURL("popup.html")})');
+  const popupActor=(await client.wait(m=>m.type==='target-available-form'&&m.target.url.endsWith('/popup.html'))).target.consoleActor;
+  for(let i=0;i<100;i++){if(await client.evaluate(popupActor,'typeof PopupTheme')==='object')break;await delay(30);}
+  check('popup loads bundled Noto Sans',await client.evaluateAsync(popupActor,`(await document.fonts.load('400 12px "Noto Sans"','Турнирный TS')).length`),1);
+  const sourceTab=await run('(await browser.tabs.query({})).find(t=>t.url.includes("/teams/46"))');
+  await run(`browser.tabs.update(${sourceTab.id},{active:true})`);
+  await client.evaluateAsync(popupActor,'refreshPopup()');
+  async function themeState(expected){
+   let actual;
+   for(let i=0;i<100;i++){
+    actual=JSON.parse(await client.evaluate(popupActor,'JSON.stringify([document.documentElement.dataset.siteTheme,document.documentElement.dataset.bsTheme,document.documentElement.dataset.contrast])'));
+    if(JSON.stringify(actual)===JSON.stringify(expected))return actual;
+    await delay(30);
+   }
+   return actual;
+  }
+  for(const family of ['classic','oldschool','catppuccin'])for(const scheme of ['light','dark']){
+   await page.evaluate(({family,scheme})=>{document.documentElement.dataset.siteTheme=family;document.documentElement.dataset.bsTheme=scheme;},{family,scheme});
+   check('popup theme '+family+'/'+scheme,await themeState([family,scheme,'normal']),[family,scheme,'normal']);
+  }
+  await options('Settings.save({tsColorScheme:"light",tsTheme:"oldschool",tsContrast:"more"})');
+  check('popup applies independent manual settings',await themeState(['oldschool','light','more']),['oldschool','light','more']);
+  check('options shares manual contrast',await client.evaluate(opt,'getComputedStyle(document.body).backgroundColor'),'rgb(255, 255, 255)');
+  check('contrast CSS actually overrides family',await client.evaluate(popupActor,'getComputedStyle(document.body).backgroundColor'),'rgb(255, 255, 255)');
+  await options('Settings.save({tsContrast:"auto"})');
+  check('automatic contrast awaits site marker',await themeState(['oldschool','light','normal']),['oldschool','light','normal']);
+  await page.emulateMedia({colorScheme:'dark'});
+  await navigate('https://rating.chgk.gg/b/team/42/');
+  await client.evaluateAsync(popupActor,'refreshPopup()');
+  check('gg follows page dark mode',await themeState(['rating','dark','normal']),['rating','dark','normal']);
+  // Firefox Playwright can create the source page in another browser window.
+  const optionsTab=await options('browser.tabs.getCurrent()');
+  if(optionsTab.windowId!==sourceTab.windowId) await run(`browser.tabs.move(${optionsTab.id},{windowId:${sourceTab.windowId},index:-1})`);
+  await run(`browser.tabs.update(${sourceTab.id},{active:true})`);
+  await options('OptionsTheme.update(await Settings.load())');
+  for(let i=0;i<100;i++){if(await client.evaluate(opt,'document.documentElement.dataset.themeGroup+"/"+document.documentElement.dataset.bsTheme')==='rating/dark')break;await delay(30);}
+  check('options uses rating palette',await client.evaluate(opt,'getComputedStyle(document.body).backgroundColor'),'rgb(17, 24, 39)');
+  await page.emulateMedia({colorScheme:'light'});
+  check('gg follows page media change',await themeState(['rating','light','normal']),['rating','light','normal']);
+  await options('Settings.save({ratingColorScheme:"dark"})');
+  for(const host of ['rating.chgk.fun','chgk.quest','elo-chgk.uk']){
+   await navigate('https://'+host+'/');await client.evaluateAsync(popupActor,'refreshPopup()');
+   check('rating manual mode on '+host,await themeState(['rating','dark','normal']),['rating','dark','normal']);
+  }
   report.passed=report.checks.filter(c=>c.pass).length;report.failed=report.checks.length-report.passed;process.exitCode=report.failed?1:0;
  }catch(error){report.fatal=String(error.stack||error);console.error(error);process.exitCode=2;}
  finally{

@@ -1,12 +1,14 @@
 'use strict';
 
 const optionsApi = (typeof browser !== 'undefined') ? browser : chrome;
+const themeFields = {'opt-ts-scheme': 'tsColorScheme', 'opt-ts-theme': 'tsTheme', 'opt-ts-contrast': 'tsContrast', 'opt-rating-scheme': 'ratingColorScheme'};
 let refreshVersion = 0;
 let saveVersion = 0;
 let pendingSaves = 0;
 
 document.addEventListener('DOMContentLoaded', async function () {
     buildPreferredSelect('off');
+    Object.keys(themeFields).forEach(id => document.getElementById(id).addEventListener('change', saveFromForm));
     buildHostsTable(Settings.getDefaults());
     document.getElementById('opt-preferred').addEventListener('change', saveFromForm);
     document.getElementById('opt-fallback').addEventListener('change', saveFromForm);
@@ -25,6 +27,8 @@ async function refreshOptions() {
     if (pendingSaves) return;
     const settings = await Settings.load();
     if (version !== refreshVersion || pendingSaves) return;
+    OptionsTheme.update(settings);
+    Object.entries(themeFields).forEach(([id, key]) => { document.getElementById(id).value = settings[key]; });
     document.getElementById('opt-preferred').value = settings.preferredTsHost;
     document.getElementById('opt-fallback').checked = settings.fallbackOnError;
     document.querySelectorAll('#hosts-tbody input[data-host]').forEach(function (cb) {
@@ -106,6 +110,8 @@ async function saveFromForm(event) {
         partial.preferredTsHost = target.value;
     } else if (target === document.getElementById('opt-fallback')) {
         partial.fallbackOnError = target.checked;
+    } else if (themeFields[target.id]) {
+        partial[themeFields[target.id]] = target.value;
     } else if (target.dataset.host) {
         const key = target.dataset.kind === 'switch' ? 'visibleSwitchHosts' : 'visibleCopyHosts';
         partial[key] = { [target.dataset.host]: target.checked };
