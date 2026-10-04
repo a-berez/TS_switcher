@@ -138,6 +138,22 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
+      - name: Create GitHub Release
+        if: steps.prepare.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.prepare.outputs.version }}
+          body: ${{ steps.changelog_link.outputs.body }}
+          generate_release_notes: false
+          fail_on_unmatched_files: true
+          files: |
+            TS_switcher-*-chromium.zip
+            TS_switcher-chromium.zip
+            TS_switcher-*-firefox.zip
+            TS_switcher-firefox.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Prepare AMO metadata (ru release notes)
         if: steps.prepare.outputs.should_release == 'true'
         env:
@@ -161,6 +177,7 @@ jobs:
           else:
               data = {}
 
+          Path("web-ext-artifacts").mkdir(parents=True, exist_ok=True)
           Path("amo_metadata.json").write_text(
               json.dumps(data, ensure_ascii=False),
               encoding="utf-8",
@@ -175,6 +192,7 @@ jobs:
           cmd: sign
           source: TS_switcher-${{ steps.prepare.outputs.plain_version }}-firefox.zip
           channel: listed
+          artifacts: web-ext-artifacts
           apiKey: ${{ secrets.AMO_SIGN_KEY }}
           apiSecret: ${{ secrets.AMO_SIGN_SECRET }}
           metaDataFile: amo_metadata.json
@@ -190,19 +208,3 @@ jobs:
           refresh_token: ${{ secrets.CWS_REFRESH_TOKEN }}
           extension_id: ${{ secrets.CWS_EXTENSION_ID }}
           zip_file: TS_switcher-${{ steps.prepare.outputs.plain_version }}-chromium.zip
-
-      - name: Create GitHub Release
-        if: steps.prepare.outputs.should_release == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.prepare.outputs.version }}
-          body: ${{ steps.changelog_link.outputs.body }}
-          generate_release_notes: false
-          fail_on_unmatched_files: true
-          files: |
-            TS_switcher-*-chromium.zip
-            TS_switcher-chromium.zip
-            TS_switcher-*-firefox.zip
-            TS_switcher-firefox.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

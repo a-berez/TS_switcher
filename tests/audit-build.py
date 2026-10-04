@@ -147,6 +147,19 @@ with tempfile.TemporaryDirectory(prefix="audit-build-", dir=ROOT / "tests") as t
                         assert result.returncode == 0, result.stderr
                         assert output.read_text(encoding="utf-8") == "body<<EOF\n" + expected + "\nEOF\n", version
                     print(f"PASS {workflow.name}: release notes from CHANGELOG for {len(version_notes)} versions, cumulative beta notes and missing versions")
+                if 'Path("amo_metadata.json").write_text' in script:
+                    python_step = script.split("python - << 'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+                    result = subprocess.run([sys.executable, "-c", python_step], cwd=work,
+                                            env=dict(ENV, BODY="Release notes"), capture_output=True, text=True)
+                    assert result.returncode == 0, result.stderr
+                    # The signer downloads into this path on a fresh runner.
+                    signed_file = work / "web-ext-artifacts" / "ts_switcher-1.0.0.xpi"
+                    assert signed_file.parent.is_dir(), "AMO download directory missing on fresh runner"
+                    signed_file.write_bytes(b"download fixture")
+                    assert json.loads((work / "amo_metadata.json").read_text())["version"]["release_notes"]["ru"] == "Release notes"
+                    assert source.index("      - name: Create GitHub Release") < source.index("      - name: Sign and upload Firefox")
+                    assert source.index("      - name: Create GitHub Release") < source.index("      - name: Upload and publish to Chrome")
+                    print(f"PASS {workflow.name}: AMO download path exists and store failures cannot skip GitHub Release")
                 if 'body="$BODY"' in script:
                     for prev in ("", "v0.9.0"):
                         for body in ("", "Release notes"):
