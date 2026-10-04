@@ -3,7 +3,7 @@
 const Theme = (() => {
     const PORT = 'ts-switcher-theme-v1';
     // Add future CSS families here only when both light/dark palettes exist.
-    const families = Object.freeze({classic: true, oldschool: true, catppuccin: true, colorblind: false});
+    const families = Object.freeze({classic: true, oldschool: true, catppuccin: true, colorblind: true});
     const schemes = ['light', 'dark'];
     function scheme(value, fallback) { return schemes.includes(value) ? value : fallback; }
     function family(value) { return families[value] === true ? value : 'classic'; }
@@ -27,9 +27,7 @@ const Theme = (() => {
             family: family(root.getAttribute('data-site-theme')),
             scheme: scheme(root.getAttribute('data-bs-theme'),
                 scheme(root.getAttribute('data-theme-pref'), dark ? 'dark' : 'light')),
-            // Site contrast marker is not present in the supplied CSS yet.
-            // Wire its documented attribute here when the updated CSS arrives.
-            contrast: 'normal'
+            contrast: root.getAttribute('data-contrast') === 'high' ? 'more' : 'normal'
         };
         return {family: 'rating', scheme: dark ? 'dark' : 'light'};
     }

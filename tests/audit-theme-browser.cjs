@@ -11,6 +11,15 @@ const root=path.resolve(__dirname,'..');
  const base=worker.url().replace('/background.js','');
  await worker.evaluate(()=>bootstrap());
  await c.route('https://**/*',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html data-site-theme="classic" data-bs-theme="light"><body>Theme fixture</body></html>'}));
+ const reference=await c.newPage();
+ await reference.setContent('<!doctype html><html><head><style>'+fs.readFileSync(path.join(root,'themes.css'),'utf8')+'</style></head><body></body></html>');
+ async function palette(page,family,scheme,contrast){
+  return page.evaluate(({family,scheme,contrast})=>{
+   if(family){Object.assign(document.documentElement.dataset,{siteTheme:family,bsTheme:scheme,contrast:contrast==='more'?'high':'normal'});}
+   const style=getComputedStyle(document.documentElement);
+   return Object.fromEntries(['bg-page','bg-surface','bg-strong','text','text-muted','border-strong','success-bg','success-text','danger-text','link'].map(k=>[k,style.getPropertyValue('--'+k).trim()]));
+  },{family,scheme,contrast});
+ }
  const source=await c.newPage(),popup=await c.newPage();
  const errors=[];popup.on('pageerror',e=>errors.push(e.message));await popup.setViewportSize({width:320,height:650});
  await source.goto('https://rating.chgk.info/teams/42');
@@ -23,9 +32,10 @@ const root=path.resolve(__dirname,'..');
  await state('ts','classic','light');
  assert.equal(await popup.evaluate(async()=>{const faces=await document.fonts.load('400 12px "Noto Sans"','Турнирный TS');return faces.length===1&&faces[0].status==='loaded'&&['body','.switch-btn','.toolbar-select'].every(s=>getComputedStyle(document.querySelector(s)).fontFamily.includes('Noto Sans'));}),true);checks++;
  await popup.evaluate(()=>window.originalButton=document.querySelector('.switch-btn'));
- for(const family of ['classic','oldschool','catppuccin'])for(const scheme of ['light','dark']){
-  await source.evaluate(({family,scheme})=>{document.documentElement.dataset.siteTheme=family;document.documentElement.dataset.bsTheme=scheme;},{family,scheme});
-  await state('ts',family,scheme);
+ for(const family of ['classic','oldschool','colorblind','catppuccin'])for(const scheme of ['light','dark'])for(const contrast of ['more','normal']){
+  await source.evaluate(({family,scheme,contrast})=>{Object.assign(document.documentElement.dataset,{siteTheme:family,bsTheme:scheme,contrast:contrast==='more'?'high':'normal'});},{family,scheme,contrast});
+  await state('ts',family,scheme,contrast);
+  assert.deepEqual(await palette(popup),await palette(reference,family,scheme,contrast));checks++;
   assert.equal(await popup.evaluate(()=>window.originalButton===document.querySelector('.switch-btn')),true);checks++;
   // Verify actual normal text/background pairs, not just data attributes.
   const pairs=await popup.evaluate(()=>['.header','#current-site','.toolbar-label','h3','.switch-btn','.copy-btn-ts','.copy-btn-rating','.toolbar-select'].map(sel=>{
@@ -35,10 +45,10 @@ const root=path.resolve(__dirname,'..');
   }));
   const lum=color=>{const rgb=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;};
   for(const pair of pairs){const a=lum(pair.fg),b=lum(pair.bg),ratio=(Math.max(a,b)+.05)/(Math.min(a,b)+.05);assert.ok(ratio>=4.5,`${family}/${scheme} ${pair.sel}: ${ratio}`);checks++;}
-  await screenshot(family+' '+scheme);
+  await screenshot(family+' '+scheme+' '+contrast);
  }
- await save({tsTheme:'oldschool',tsColorScheme:'light',tsContrast:'more'});await state('ts','oldschool','light','more');assert.equal(await popup.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(255, 255, 255)');checks++;await screenshot('Контраст — светлый');
- await save({tsColorScheme:'dark'});await state('ts','oldschool','dark','more');assert.equal(await popup.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(0, 0, 0)');checks++;await screenshot('Контраст — тёмный');
+ await save({tsTheme:'oldschool',tsColorScheme:'light',tsContrast:'more'});await state('ts','oldschool','light','more');assert.equal(await popup.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(246, 248, 250)');checks++;await screenshot('Контраст — светлый');
+ await save({tsColorScheme:'dark'});await state('ts','oldschool','dark','more');assert.equal(await popup.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(13, 15, 18)');checks++;await screenshot('Контраст — тёмный');
  await save({tsTheme:'auto',tsColorScheme:'auto',tsContrast:'auto'});
  await popup.emulateMedia({contrast:'more'});await state('ts','catppuccin','dark','normal');
  // gg must follow the source tab even if popup media is different.
@@ -46,13 +56,21 @@ const root=path.resolve(__dirname,'..');
  await source.goto('https://rating.chgk.gg/b/team/42/');await popup.evaluate(()=>refreshPopup());await state('rating','rating','dark');
  const tsCopyColors={classic:{light:'rgb(193, 178, 131)',dark:'rgb(65, 58, 43)'},oldschool:{light:'rgb(172, 179, 189)',dark:'rgb(53, 59, 68)'},catppuccin:{light:'rgb(173, 179, 192)',dark:'rgb(55, 56, 77)'}};
  const tsCopyBorders={classic:{light:'rgb(160, 147, 107)',dark:'rgb(99, 90, 68)'},oldschool:{light:'rgb(140, 148, 159)',dark:'rgb(84, 91, 101)'},catppuccin:{light:'rgb(142, 147, 165)',dark:'rgb(85, 89, 115)'}};
+ tsCopyColors.colorblind=tsCopyColors.classic;tsCopyBorders.colorblind=tsCopyBorders.classic;
  for(const family of Object.keys(tsCopyColors))for(const scheme of ['light','dark']){
   await save({tsTheme:family,tsColorScheme:scheme});
   const actual=await popup.evaluate(()=>({copy:getComputedStyle(document.querySelector('.copy-btn-ts')).backgroundColor,body:getComputedStyle(document.body).backgroundColor,border:getComputedStyle(document.querySelector('.copy-btn-ts')).borderTopColor}));
   assert.deepEqual(actual,{copy:tsCopyColors[family][scheme],body:'rgb(17, 24, 39)',border:tsCopyBorders[family][scheme]});checks++;
  }
+ for(const family of Object.keys(tsCopyColors))for(const scheme of ['light','dark'])for(const contrast of ['normal','more']){
+  await save({tsTheme:family,tsColorScheme:scheme,tsContrast:contrast});
+  const expected=await palette(reference,family,scheme,contrast);
+  const actual=await popup.evaluate(()=>{const s=getComputedStyle(document.documentElement);return ['bg','border'].map(k=>s.getPropertyValue('--copy-ts-'+k).trim());});
+  assert.deepEqual(actual,[expected['bg-strong'],expected['border-strong']]);checks++;
+ }
  await save({tsContrast:'more'});
- assert.equal(await popup.evaluate(()=>getComputedStyle(document.querySelector('.copy-btn-ts')).backgroundColor),'rgb(0, 0, 0)');checks++;
+ assert.equal(await popup.evaluate(()=>getComputedStyle(document.querySelector('.copy-btn-ts')).backgroundColor),'rgb(65, 58, 43)');checks++;
+ assert.equal(await popup.evaluate(()=>getComputedStyle(document.querySelector('.copy-btn-ts')).borderTopColor),'rgb(193, 178, 131)');checks++;
  await save({tsTheme:'auto',tsColorScheme:'auto',tsContrast:'auto'});
  assert.equal(await popup.evaluate(()=>getComputedStyle(document.querySelector('.copy-btn-ts')).backgroundColor),tsCopyColors.classic.light);checks++;
  await screenshot('Рейтинг — тёмный');
@@ -72,7 +90,7 @@ const root=path.resolve(__dirname,'..');
  for(const [id,key,value] of [['opt-ts-scheme','tsColorScheme','light'],['opt-ts-theme','tsTheme','catppuccin'],['opt-ts-contrast','tsContrast','more'],['opt-rating-scheme','ratingColorScheme','dark']]){
   await options.selectOption('#'+id,value);await options.waitForFunction(({key,value})=>Settings.load().then(s=>s[key]===value),{key,value});checks++;
  }
- assert.equal(await options.locator('option[value=colorblind]').evaluate(el=>el.disabled),true);checks++;
+ assert.equal(await options.locator('option[value=colorblind]').evaluate(el=>el.disabled),false);checks++;
  async function optionsState(group,family,scheme,contrast='normal'){
   await options.waitForFunction(w=>{const d=document.documentElement.dataset;return d.themeGroup===w[0]&&d.siteTheme===w[1]&&d.bsTheme===w[2]&&d.contrast===w[3];},[group,family,scheme,contrast]);checks++;
  }
@@ -83,19 +101,26 @@ const root=path.resolve(__dirname,'..');
  assert.equal(await options.evaluate(()=>getComputedStyle(document.querySelector('.card')).backgroundColor),'rgb(255, 255, 255)');checks++;
  await options.bringToFront();
  await options.selectOption('#opt-ts-contrast','normal');
- for(const family of ['classic','oldschool','catppuccin'])for(const scheme of ['light','dark']){
+ for(const family of ['classic','oldschool','colorblind','catppuccin'])for(const scheme of ['light','dark'])for(const contrast of ['more','normal']){
+  await options.selectOption('#opt-ts-contrast',contrast);
   await options.selectOption('#opt-ts-theme',family);await options.selectOption('#opt-ts-scheme',scheme);
-  await optionsState('ts',family,scheme);
+  await optionsState('ts',family,scheme,contrast);
+  assert.deepEqual(await palette(options),await palette(reference,family,scheme,contrast));checks++;
   assert.equal(await options.evaluate(()=>getComputedStyle(document.documentElement).colorScheme),scheme);checks++;
  }
  await options.selectOption('#opt-ts-contrast','more');await optionsState('ts','catppuccin','dark','more');
- assert.equal(await options.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(0, 0, 0)');checks++;
+ assert.equal(await options.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(14, 14, 21)');checks++;
  // External changes and automatic page updates also recolor the settings page.
  await worker.evaluate(()=>Settings.save({tsTheme:'auto',tsColorScheme:'auto',tsContrast:'auto'}));
  await second.evaluate(()=>{document.documentElement.dataset.siteTheme='oldschool';document.documentElement.dataset.bsTheme='dark';});
  await optionsState('ts','oldschool','dark');
  await second.evaluate(()=>{document.documentElement.dataset.siteTheme='catppuccin';document.documentElement.dataset.bsTheme='light';});
  await optionsState('ts','catppuccin','light');
+ await second.evaluate(()=>document.documentElement.dataset.contrast='high');
+ await optionsState('ts','catppuccin','light','more');
+ await options.selectOption('#opt-ts-contrast','normal');await optionsState('ts','catppuccin','light');
+ await options.selectOption('#opt-ts-contrast','auto');await optionsState('ts','catppuccin','light','more');
+ await second.evaluate(()=>delete document.documentElement.dataset.contrast);await optionsState('ts','catppuccin','light');
  await source.close();await second.close();await options.emulateMedia({colorScheme:'dark'});
  await optionsState('ts','classic','dark');
  await options.selectOption('#opt-ts-theme','catppuccin');await optionsState('ts','catppuccin','dark');

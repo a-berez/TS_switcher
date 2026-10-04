@@ -97,16 +97,23 @@ async function rdp(port){
    }
    return actual;
   }
-  for(const family of ['classic','oldschool','catppuccin'])for(const scheme of ['light','dark']){
+  for(const family of ['classic','oldschool','catppuccin','colorblind'])for(const scheme of ['light','dark']){
    await page.evaluate(({family,scheme})=>{document.documentElement.dataset.siteTheme=family;document.documentElement.dataset.bsTheme=scheme;},{family,scheme});
    check('popup theme '+family+'/'+scheme,await themeState([family,scheme,'normal']),[family,scheme,'normal']);
   }
   await options('Settings.save({tsColorScheme:"light",tsTheme:"oldschool",tsContrast:"more"})');
   check('popup applies independent manual settings',await themeState(['oldschool','light','more']),['oldschool','light','more']);
-  check('options shares manual contrast',await client.evaluate(opt,'getComputedStyle(document.body).backgroundColor'),'rgb(255, 255, 255)');
-  check('contrast CSS actually overrides family',await client.evaluate(popupActor,'getComputedStyle(document.body).backgroundColor'),'rgb(255, 255, 255)');
+  check('options shares manual contrast',await client.evaluate(opt,'getComputedStyle(document.body).backgroundColor'),'rgb(246, 248, 250)');
+  check('contrast CSS actually overrides family',await client.evaluate(popupActor,'getComputedStyle(document.body).backgroundColor'),'rgb(246, 248, 250)');
   await options('Settings.save({tsContrast:"auto"})');
-  check('automatic contrast awaits site marker',await themeState(['oldschool','light','normal']),['oldschool','light','normal']);
+  check('automatic contrast defaults to normal',await themeState(['oldschool','light','normal']),['oldschool','light','normal']);
+  await page.evaluate(()=>document.documentElement.dataset.contrast='high');
+  check('automatic contrast follows site',await themeState(['oldschool','light','more']),['oldschool','light','more']);
+  await options('Settings.save({tsContrast:"normal"})');
+  check('manual normal overrides site high',await themeState(['oldschool','light','normal']),['oldschool','light','normal']);
+  await options('Settings.save({tsContrast:"auto"})');
+  await page.evaluate(()=>delete document.documentElement.dataset.contrast);
+  check('removing site contrast restores normal',await themeState(['oldschool','light','normal']),['oldschool','light','normal']);
   await page.emulateMedia({colorScheme:'dark'});
   await navigate('https://rating.chgk.gg/b/team/42/');
   await client.evaluateAsync(popupActor,'refreshPopup()');

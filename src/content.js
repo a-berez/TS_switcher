@@ -44,7 +44,7 @@
         }
         port.onDisconnect.addListener(cleanup);
         if (Sites.isTsHost(host)) observer.observe(document.documentElement, {
-            attributes: true, attributeFilter: ['data-site-theme', 'data-bs-theme', 'data-theme-pref']
+            attributes: true, attributeFilter: ['data-site-theme', 'data-bs-theme', 'data-theme-pref', 'data-contrast']
         });
         media.addEventListener('change', send);
         send();

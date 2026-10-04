@@ -23,31 +23,5 @@
 :root[data-theme-group=rating] .switch-btn:hover { background: #d1d5db; }
 :root[data-theme-group=rating][data-bs-theme=dark] .switch-btn:hover { background: #374151; }
 
-/* Independent high-contrast layer. Future site tokens can replace this layer. */
-:root[data-theme-group=ts][data-site-theme][data-bs-theme][data-contrast=more] {
-    --contrast-bg: #fff; --contrast-fg: #000;
-    --bg-page: var(--contrast-bg); --bg-surface: var(--contrast-bg);
-    --bg-surface-alt: var(--contrast-bg); --bg-elevated: var(--contrast-bg);
-    --bg-input: var(--contrast-bg); --bg-strong: var(--contrast-bg);
-    --text: var(--contrast-fg); --text-strong: var(--contrast-fg); --text-muted: var(--contrast-fg);
-    --border: var(--contrast-fg); --border-input: var(--contrast-fg); --border-strong: var(--contrast-fg);
-    --link: var(--contrast-fg); --link-hover: var(--contrast-fg);
-    --info-bg: var(--contrast-bg); --info-text: var(--contrast-fg); --info-border: var(--contrast-fg);
-    --success-bg: var(--contrast-bg); --success-text: var(--contrast-fg); --success-border: var(--contrast-fg);
-    --danger-text: var(--contrast-fg);
-    --warning-bg: var(--contrast-bg); --warning-text: var(--contrast-fg); --warning-border: var(--contrast-fg);
-    --shadow-sm: none;
-}
-:root[data-theme-group=ts][data-site-theme][data-bs-theme][data-contrast=more][data-bs-theme=dark] { --contrast-bg: #000; --contrast-fg: #fff; }
 :root[data-contrast=more] button:hover { text-decoration: underline; }
 :root[data-contrast=more] button, :root[data-contrast=more] select { border-width: 2px; }
-
-/* TS copy buttons retain their own theme inside the rating palette. */
-:root[data-theme-group=rating][data-copy-ts-theme][data-copy-ts-scheme][data-copy-ts-contrast=more] {
-    --copy-ts-bg: #fff; --copy-ts-text: #000; --copy-ts-border: #000;
-    --copy-ts-hover-bg: #fff; --copy-ts-hover-text: #000; --copy-ts-focus: #000;
-}
-:root[data-theme-group=rating][data-copy-ts-theme][data-copy-ts-scheme=dark][data-copy-ts-contrast=more] {
-    --copy-ts-bg: #000; --copy-ts-text: #fff; --copy-ts-border: #fff;
-    --copy-ts-hover-bg: #000; --copy-ts-hover-text: #fff; --copy-ts-focus: #fff;
-}

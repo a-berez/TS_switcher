@@ -80,7 +80,7 @@ const Settings = (function () {
         }
         const themeValues = {
             tsColorScheme: ['auto', 'light', 'dark'],
-            tsTheme: ['auto', 'classic', 'oldschool', 'catppuccin'],
+            tsTheme: ['auto', 'classic', 'oldschool', 'catppuccin', 'colorblind'],
             tsContrast: ['auto', 'normal', 'more'],
             ratingColorScheme: ['auto', 'light', 'dark']
         };
