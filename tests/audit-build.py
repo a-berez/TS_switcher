@@ -110,7 +110,7 @@ with tempfile.TemporaryDirectory(prefix="audit-build-", dir=ROOT / "tests") as t
     print("PASS malformed manifests, wrong manifest platform and dangling HTML resources are rejected")
     assert not list(work.glob("ts-switcher-build-*")), "staging directory leaked"
 
-    # Keep README absent here: release notes must come from the detailed changelog.
+    # Keep README absent here: release notes must come from the user-facing changelog.
     shutil.copy2(ROOT / "CHANGELOG.md", work)
     version_notes = {}
     current_version = None
