@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -12,18 +15,33 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check extension and isolated builds
+        run: |
+          python tools/generate-themes.py --check
+          node tests/audit-themes.cjs
+          node tests/audit-ui.cjs
+          node tests/audit-background.cjs
+          python tests/audit-build.py
+
       - name: Build extension
         env:
           VERSION: ${{ github.ref_name }}
         run: python build.py
 
-      - name: Extract release notes from README
+      - name: Extract release notes from CHANGELOG
         id: changelog
         env:
           VERSION: ${{ github.ref_name }}
@@ -32,10 +50,12 @@ jobs:
           import os, re, pathlib
 
           version = os.environ["VERSION"].lstrip("v")
-          readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+          # Beta builds share the cumulative notes for their release.
+          version = re.sub(r"-beta\.\d+$", "", version)
+          changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
 
           pattern = rf"### Версия {re.escape(version)}\n((?:.|\n)*?)(?:\n### Версия |\n## |\Z)"
-          m = re.search(pattern, readme)
+          m = re.search(pattern, changelog)
           # Если блок для этой версии не найден, оставляем описание пустым,
           # чтобы релиз создался без текста.
           notes = (m.group(1).strip() if m else "")
@@ -63,10 +83,10 @@ jobs:
             line="Full Changelog: \`${prev_tag}...${version}\`"
             if [ -n "$body" ]; then
               printf '%s\n\n%s\n' "$body" "$line" > body_with_link.txt
-            else:
+            else
               printf '%s\n' "$line" > body_with_link.txt
             fi
-          else:
+          else
             printf '%s\n' "$body" > body_with_link.txt
           fi
 
@@ -82,6 +102,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           body: ${{ steps.changelog_link.outputs.body }}
           generate_release_notes: false
+          fail_on_unmatched_files: true
           files: |
             TS_switcher-*-chromium.zip
             TS_switcher-chromium.zip

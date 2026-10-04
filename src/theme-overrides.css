@@ -1,0 +1,27 @@
+/* rating-ui 7ba7b05: Tailwind 3.4.14 gray/slate/blue, mapped to popup roles.
+   Mapping, sources and additional state colors: docs/popup-themes-plan.md. */
+:root[data-theme-group=rating] {
+    --bg-page: #fff; --bg-surface: #fff; --bg-surface-alt: #f3f4f6;
+    --bg-elevated: #e5e7eb; --bg-input: #fff; --bg-strong: #dbeafe;
+    --text: #000; --text-strong: #000; --text-muted: #4b5563;
+    --border: #d1d5db; --border-input: #d1d5db; --border-strong: #6b7280;
+    --link: #1d4ed8; --link-hover: #1e40af;
+    --info-bg: #dbeafe; --info-text: #1e40af; --info-border: #93c5fd;
+    --success-bg: #dcfce7; --success-text: #166534; --success-border: #166534;
+    --warning-bg: #fef3c7; --warning-text: #92400e; --warning-border: #92400e;
+}
+:root[data-theme-group=rating][data-bs-theme=dark] {
+    --bg-page: #111827; --bg-surface: #111827; --bg-surface-alt: #374151;
+    --bg-elevated: #1f2937; --bg-input: #1f2937; --bg-strong: #4b5563;
+    --text: #f1f5f9; --text-strong: #f1f5f9; --text-muted: #d1d5db;
+    --border: #4b5563; --border-input: #4b5563; --border-strong: #9ca3af;
+    --link: #93c5fd; --link-hover: #bfdbfe;
+    --info-bg: #1f2937; --info-text: #bfdbfe; --info-border: #1e3a8a;
+    --success-bg: #14532d; --success-text: #dcfce7; --success-border: #86efac;
+    --warning-bg: #451a03; --warning-text: #fef3c7; --warning-border: #fcd34d;
+}
+:root[data-theme-group=rating] .switch-btn:hover { background: #d1d5db; }
+:root[data-theme-group=rating][data-bs-theme=dark] .switch-btn:hover { background: #374151; }
+
+:root[data-contrast=more] button:hover { text-decoration: underline; }
+:root[data-contrast=more] button, :root[data-contrast=more] select { border-width: 2px; }

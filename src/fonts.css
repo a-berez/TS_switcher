@@ -1,0 +1,9 @@
+/* Noto Sans, from the --font-sans token in themes.css. Bundled under SIL OFL. */
+@font-face {
+    font-family: 'Noto Sans';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('fonts/NotoSans-variable.ttf') format('truetype');
+}
+button, input, select, textarea { font-family: inherit; }

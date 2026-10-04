@@ -1,15 +1,23 @@
 {
   "manifest_version": 2,
   "name": "TS_switcher",
-  "version": "0.3.2",
-  "description": "Переключение между основным сайтом rating.chgk.info, зеркалами rating.pecheny.me и rating.pecheny.kz, и рейтингом rating.chgk.gg",
+  "version": "1.0.0",
+  "description": "Переключение между Турнирным сайтом, зеркалами и сайтами рейтинга",
   "permissions": [
     "tabs",
     "activeTab",
+    "storage",
+    "webNavigation",
+    "webRequest",
+    "webRequestBlocking",
     "https://rating.chgk.info/*",
     "https://rating.pecheny.me/*",
     "https://rating.pecheny.kz/*",
-    "https://rating.chgk.gg/*"
+    "https://rating.pecheny.ru/*",
+    "https://rating.chgk.gg/*",
+    "https://rating.chgk.fun/*",
+    "https://chgk.quest/*",
+    "https://elo-chgk.uk/*"
   ],
   "browser_action": {
     "default_popup": "popup.html",
@@ -19,9 +27,17 @@
       "128": "icons/icon128.png"
     }
   },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "background": {
-    "scripts": ["background-firefox.js"],
-    "persistent": false
+    "scripts": [
+      "sites.js",
+      "settings.js",
+      "background-firefox.js"
+    ],
+    "persistent": true
   },
   "content_scripts": [
     {
@@ -29,9 +45,17 @@
         "https://rating.chgk.info/*",
         "https://rating.pecheny.me/*",
         "https://rating.pecheny.kz/*",
-        "https://rating.chgk.gg/*"
+        "https://rating.pecheny.ru/*",
+        "https://rating.chgk.gg/*",
+        "https://rating.chgk.fun/*",
+        "https://chgk.quest/*",
+        "https://elo-chgk.uk/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "sites.js",
+        "theme.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -44,9 +68,10 @@
     "gecko": {
       "id": "ts-switcher@chgk.info",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   }
 }
-

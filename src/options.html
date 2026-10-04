@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки TS_switcher</title>
+    <link rel="stylesheet" href="fonts.css">
+    <link rel="stylesheet" href="popup-themes.css">
+    <link rel="stylesheet" href="theme-overrides.css">
+    <link rel="stylesheet" href="options.css">
+    <script src="sites.js"></script>
+    <script src="theme.js"></script>
+    <script src="popup-theme.js"></script>
+    <script src="options-theme.js"></script>
+</head>
+<body>
+    <main class="wrap">
+        <h1>TS_switcher — настройки</h1>
+
+        <section class="card">
+            <h2>Перехват Турнирного сайта</h2>
+            <p class="hint">При включённом предпочитаемом хосте переходы между TS-доменами переписываются на выбранный, кроме /login и /logout на зеркалах. Увод сайта на rating.chgk.info/login переписывается на предпочитаемый хост (или на последнее зеркало вкладки, если перехват выключен). Ссылка «Войти» ниже открывает выбранный хост напрямую. После открытия /login расширение не вмешивается в TS-редиректы этой вкладки до /logout.</p>
+            <label class="field">
+                <span>Предпочитаемый хост</span>
+                <select id="opt-preferred"></select>
+            </label>
+            <label class="checkbox-field">
+                <input type="checkbox" id="opt-fallback" />
+                <span>Предлагать другое зеркало при ошибке загрузки (если перехват выключен)</span>
+            </label>
+        </section>
+
+        <section class="card">
+            <h2>Отображение в попапе</h2>
+            <p class="hint">Независимо настраиваются кнопки переключения и копирования.</p>
+            <table class="hosts-table">
+                <thead>
+                    <tr>
+                        <th>Сайт</th>
+                        <th>Переключение</th>
+                        <th>Копирование</th>
+                        <th>Вход</th>
+                    </tr>
+                </thead>
+                <tbody id="hosts-tbody"></tbody>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>Оформление расширения</h2>
+            <label class="field"><span>ТС: светлая / тёмная</span>
+                <select id="opt-ts-scheme"><option value="auto">Автоматически — как на сайте</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select>
+            </label>
+            <label class="field"><span>ТС: тема</span>
+                <select id="opt-ts-theme"><option value="auto">Как на сайте</option><option value="classic">Classic</option><option value="oldschool">Oldschool</option><option value="catppuccin">Catppuccin</option><option value="colorblind">Для дальтоников</option></select>
+            </label>
+            <p class="hint">Все четыре темы доступны в светлом и тёмном вариантах.</p>
+            <label class="field"><span>ТС: повышенная контрастность</span>
+                <select id="opt-ts-contrast"><option value="auto">Как на сайте</option><option value="normal">Выключена</option><option value="more">Включена</option></select>
+            </label>
+            <p class="hint">«Как на сайте» следует настройке контрастности ТС. Ручной выбор применяет контрастную палитру выбранной темы.</p>
+            <label class="field"><span>Сайты рейтингов: светлая / тёмная</span>
+                <select id="opt-rating-scheme"><option value="auto">Автоматически</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select>
+            </label>
+            <p class="hint">На gg автоматический режим следует теме сайта, на остальных рейтингах — браузеру / ОС. Все рейтинги используют палитру gg. Ручной выбор меняет попап и эту страницу, не затрагивая сами сайты. Эта страница использует оформление активного или последнего выбранного поддерживаемого сайта в этом окне; если таких вкладок нет — настройки ТС. Если тема ТС недоступна, автоматические настройки используют Classic и системный режим; ручной выбор сохраняется.</p>
+        </section>
+
+        <p id="save-status" class="save-status" aria-live="polite"></p>
+    </main>
+
+    <script src="settings.js"></script>
+    <script src="options.js"></script>
+</body>
+</html>

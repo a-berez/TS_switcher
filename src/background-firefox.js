@@ -1,11 +1,6 @@
 // Background script for Firefox (Manifest V2)
-
-const SUPPORTED_SITES = [
-    'rating.chgk.info',
-    'rating.pecheny.me',
-    'rating.pecheny.kz',
-    'rating.chgk.gg'
-];
+// sites.js and settings.js are loaded via manifest background.scripts order
+Settings.initializeBackground();
 
 const ICON_PATHS = {
     normal: {
@@ -25,24 +20,85 @@ const ICON_PATHS = {
     }
 };
 
-async function setIcon(tabId, enabled, isRatingSite = false) {
-    // Firefox не поддерживает action.setIcon / browserAction.setIcon — пропускаем без ошибки
+let cachedPreferred = 'off';
+let cachedFallbackOnError = true;
+
+const loginGraceTabs = new Set();
+const lastTsHostByTab = new Map();
+const navigationVersions = new Map();
+let settingsQueue = Promise.resolve();
+const ORIGINAL_TS_HOST = Sites.TS_HOSTS[0];
+const DIRECT_PARAM = 'ts_switcher_direct';
+
+const TS_URL_PATTERNS = Sites.TS_HOSTS.map(function (h) {
+    return '*://' + h + '/*';
+});
+
+function isLoginPath(pathname) {
+    return pathname === '/login' || pathname.startsWith('/login/');
+}
+
+function isLogoutPath(pathname) {
+    return pathname === '/logout' || pathname.startsWith('/logout/');
+}
+
+function isAuthPath(pathname) {
+    return isLoginPath(pathname) || isLogoutPath(pathname);
+}
+
+function rememberTsHost(tabId, hostname, pathname) {
+    if (tabId === undefined) return;
+    if (!Sites.isTsHost(hostname)) return;
+    if (isAuthPath(pathname)) return;
+    lastTsHostByTab.set(tabId, hostname);
+}
+
+function resolveInfoLoginTarget(tabId) {
+    if (cachedPreferred !== 'off') {
+        if (cachedPreferred === ORIGINAL_TS_HOST) {
+            return null;
+        }
+        return cachedPreferred;
+    }
+    const last = lastTsHostByTab.get(tabId);
+    if (last && last !== ORIGINAL_TS_HOST) {
+        return last;
+    }
+    return null;
+}
+
+function refreshCachedSettings() {
+    const update = settingsQueue.then(async function () {
+        const settings = await Settings.load();
+        cachedPreferred = settings.preferredTsHost;
+        cachedFallbackOnError = settings.fallbackOnError;
+    });
+    settingsQueue = update.catch(function (error) {
+        console.error('Error loading redirect settings:', error);
+    });
+    return settingsQueue;
+}
+
+async function setIcon(tabId, enabled, isRatingSite) {
     return;
+}
+
+function isMissingTabError(error) {
+    const msg = (error && error.message) ? error.message : String(error || '');
+    return /no tab with id/i.test(msg);
 }
 
 function isSupportedSite(url) {
     try {
-        const urlObj = new URL(url);
-        return SUPPORTED_SITES.includes(urlObj.hostname);
+        return Sites.isSupportedHost(new URL(url).hostname);
     } catch {
         return false;
     }
 }
 
-function isRatingSite(url) {
+function isRatingSiteUrl(url) {
     try {
-        const urlObj = new URL(url);
-        return urlObj.hostname === 'rating.chgk.gg';
+        return Sites.isRatingHost(new URL(url).hostname);
     } catch {
         return false;
     }
@@ -52,43 +108,188 @@ async function updateIcon(tabId) {
     try {
         const tab = await browser.tabs.get(tabId);
         if (tab && tab.url && tab.url.startsWith('http')) {
-            const enabled = isSupportedSite(tab.url);
-            const isRating = isRatingSite(tab.url);
-            await setIcon(tabId, enabled, isRating);
+            await setIcon(tab.id, isSupportedSite(tab.url), isRatingSiteUrl(tab.url));
         }
     } catch (error) {
-        console.error('Error updating icon:', error);
+        if (!isMissingTabError(error)) {
+            console.error('Error updating icon:', error);
+        }
     }
 }
 
-browser.runtime.onInstalled.addListener(async (details) => {
-    console.log(`TS_switcher ${details.reason}`);
-    
+async function redirectTsRequest(details) {
+    // Firefox supports a Promise from a blocking webRequest listener.
+    await ready;
+    await settingsQueue;
+    try {
+        const url = new URL(details.url);
+        rememberTsHost(details.tabId, url.hostname, url.pathname);
+        if (Sites.isTsHost(url.hostname) && isLogoutPath(url.pathname)) {
+            loginGraceTabs.delete(details.tabId);
+        }
+
+        // A/B: site auth bounce to info/login → preferred or last mirror.
+        if (url.hostname === ORIGINAL_TS_HOST && isLoginPath(url.pathname)) {
+            if (url.searchParams.get(DIRECT_PARAM) === '1') {
+                return {};
+            }
+            const loginTarget = resolveInfoLoginTarget(details.tabId);
+            if (loginTarget) {
+                url.hostname = loginTarget;
+                return { redirectUrl: url.toString() };
+            }
+            return {};
+        }
+
+        if (cachedPreferred === 'off') {
+            return {};
+        }
+        if (!Sites.isTsHost(url.hostname) || url.hostname === cachedPreferred) {
+            return {};
+        }
+        // Never redirect auth endpoints on mirrors (stay on that host's /login).
+        if (isAuthPath(url.pathname)) {
+            return {};
+        }
+        if (url.searchParams.get(DIRECT_PARAM) === '1') {
+            return {};
+        }
+        // If the tab is in "login grace", keep its navigation intact.
+        if (loginGraceTabs.has(details.tabId)) {
+            return {};
+        }
+        url.hostname = cachedPreferred;
+        return { redirectUrl: url.toString() };
+    } catch {
+        return {};
+    }
+}
+
+async function handleLoadError(details) {
+    if (details.frameId !== 0 || /(?:ERR_ABORTED|NS_BINDING_ABORTED)/.test(details.error || '')) {
+        return;
+    }
+    const version = navigationVersions.get(details.tabId) || {};
+    navigationVersions.set(details.tabId, version);
+    await ready;
+    await settingsQueue;
+    let hostname;
+    try {
+        hostname = new URL(details.url).hostname;
+    } catch {
+        return;
+    }
+    if (!Sites.isTsHost(hostname)) {
+        return;
+    }
+    if (navigationVersions.get(details.tabId) !== version
+        || cachedPreferred !== 'off' || !cachedFallbackOnError) {
+        return;
+    }
+
+    const url = new URL(details.url);
+    await Settings.setFallbackForTab(details.tabId, {
+        failedHost: hostname,
+        path: url.pathname + url.search + url.hash,
+        url: details.url
+    });
+}
+
+async function bootstrap() {
+    await refreshCachedSettings();
     try {
         const tabs = await browser.tabs.query({});
         for (const tab of tabs) {
             if (tab.id !== undefined) {
+                if (tab.url) {
+                    try {
+                        const u = new URL(tab.url);
+                        rememberTsHost(tab.id, u.hostname, u.pathname);
+                        if (Sites.isTsHost(u.hostname) && isLoginPath(u.pathname)) {
+                            loginGraceTabs.add(tab.id);
+                        }
+                    } catch {
+                        // ignore
+                    }
+                }
                 await updateIcon(tab.id);
             }
         }
     } catch (error) {
-        console.error('Error updating icons on install:', error);
+        console.error('Error updating icons on bootstrap:', error);
+    }
+}
+
+browser.webRequest.onBeforeRequest.addListener(
+    redirectTsRequest,
+    { urls: TS_URL_PATTERNS, types: ['main_frame'] },
+    ['blocking']
+);
+
+browser.runtime.onInstalled.addListener(function (details) {
+    console.log('TS_switcher ' + details.reason);
+    bootstrap();
+});
+
+browser.storage.onChanged.addListener(function (changes, area) {
+    if (area === 'local' && changes[Settings.STORAGE_KEY]) {
+        refreshCachedSettings();
     }
 });
 
-browser.tabs.onActivated.addListener(async (activeInfo) => {
+browser.tabs.onActivated.addListener(function (activeInfo) {
     if (activeInfo && activeInfo.tabId !== undefined) {
-        await updateIcon(activeInfo.tabId);
+        updateIcon(activeInfo.tabId);
     }
 });
 
-browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+browser.tabs.onRemoved.addListener(function (tabId) {
+    lastTsHostByTab.delete(tabId);
+    loginGraceTabs.delete(tabId);
+    navigationVersions.delete(tabId);
+    Settings.clearFallbackForTab(tabId);
+});
+
+browser.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+    if ((changeInfo.status === 'complete' || changeInfo.url) && tab && tab.url) {
+        updateIcon(tabId);
+    }
+});
+
+browser.webNavigation.onErrorOccurred.addListener(function (details) {
+    handleLoadError(details);
+});
+
+browser.webNavigation.onCommitted.addListener(function (details) {
+    if (details.frameId !== 0) return;
+    if (details.tabId === undefined) return;
+
+    let url;
     try {
-        if ((changeInfo.status === 'complete' || changeInfo.url) && tab && tab.url) {
-            await updateIcon(tabId);
-        }
-    } catch (e) {
-        // no-op
+        url = new URL(details.url);
+    } catch {
+        return;
+    }
+    if (!Sites.isTsHost(url.hostname)) return;
+
+    rememberTsHost(details.tabId, url.hostname, url.pathname);
+
+    if (isLoginPath(url.pathname)) {
+        loginGraceTabs.add(details.tabId);
+    } else if (isLogoutPath(url.pathname)) {
+        loginGraceTabs.delete(details.tabId);
     }
 });
 
+browser.webNavigation.onBeforeNavigate.addListener(function (details) {
+    if (details.frameId !== 0) return;
+    navigationVersions.set(details.tabId, {});
+});
+
+browser.webNavigation.onCompleted.addListener(function (details) {
+    if (details.frameId !== 0) return;
+    navigationVersions.set(details.tabId, {});
+    Settings.clearFallbackForTab(details.tabId);
+});
+
+const ready = bootstrap();

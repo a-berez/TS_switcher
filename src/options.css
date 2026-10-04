@@ -1,0 +1,127 @@
+body {
+    font-family: var(--font-sans);
+    background: var(--bg-page);
+    color: var(--text);
+    line-height: 1.5;
+    margin: 0;
+    padding: 24px;
+}
+
+.wrap {
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+h1 {
+    font-size: 22px;
+    margin-bottom: 20px;
+}
+
+h2 {
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.hint {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.field select {
+    padding: 6px 8px;
+    font-size: 14px;
+}
+
+.checkbox-field {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.checkbox-field input {
+    margin-top: 3px;
+}
+
+.hosts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.hosts-table th,
+.hosts-table td {
+    border-bottom: 1px solid var(--border);
+    padding: 8px 6px;
+    text-align: left;
+}
+
+.hosts-table th:nth-child(2),
+.hosts-table th:nth-child(3),
+.hosts-table th:nth-child(4),
+.hosts-table td:nth-child(2),
+.hosts-table td:nth-child(3),
+.hosts-table td:nth-child(4) {
+    text-align: center;
+    width: 100px;
+}
+
+.login-link {
+    font-size: 13px;
+    color: var(--link);
+    text-decoration: none;
+}
+
+.login-link:hover {
+    text-decoration: underline;
+}
+
+.login-na {
+    color: var(--text-muted);
+}
+
+.save-status {
+    font-size: 13px;
+    color: var(--success-text);
+    min-height: 1.2em;
+}
+
+.save-status.error {
+    color: var(--danger-text);
+}
+
+.field select {
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--text-muted);
+    border-radius: 4px;
+}
+input[type=checkbox] { accent-color: var(--link); }
+a:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--link);
+    outline-offset: 3px;
+}
+:root[data-contrast=more] .card,
+:root[data-contrast=more] select { border: 2px solid var(--text); }
+@media (forced-colors: active) {
+    .card, select { border: 1px solid CanvasText; }
+    a:focus-visible, input:focus-visible, select:focus-visible { outline-color: Highlight; }
+}

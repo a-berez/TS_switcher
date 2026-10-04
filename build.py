@@ -1,180 +1,120 @@
 #!/usr/bin/env python3
-"""
-Build script for TS_switcher extension
-Creates ZIP archives for Chromium (Chrome/Edge/Opera) and Firefox
+"""Validate and package TS_switcher for Chromium and Firefox without editing src."""
 
-This version is intended to be run from the repository root.
-Source files for the extension live in the `src` directory.
-"""
-
-import os
-import shutil
-import zipfile
 import json
+import os
+import re
+import shutil
+import tempfile
+import zipfile
 from pathlib import Path
-
-# Версия: из env VERSION (в CI — тег, напр. v0.3.2) или fallback
-VERSION = os.environ.get("VERSION", "0.3.2").lstrip("v")
 
 BASE_DIR = Path(__file__).resolve().parent
 SRC_DIR = BASE_DIR / "src"
+DEFAULT_VERSION = "1.0.0"
+COMMON_FILES = (
+    "fonts.css", "fonts/NotoSans-variable.ttf", "fonts/OFL-NotoSans.txt", "fonts/README.md",
+    "popup.html", "popup.css", "popup.js", "options.html", "options.css",
+    "theme.js", "theme-overrides.css", "options-theme.js", "popup-theme.js", "popup-themes.css", "options.js", "sites.js", "settings.js", "content.js", "LICENSE",
+)
+REQUIRED_ICONS = tuple(
+    f"icons/icon{size}{suffix}.png"
+    for size in (16, 48, 128)
+    for suffix in ("", "_rating", "_disabled")
+)
 
 
-def update_manifest_versions():
-    """Обновляет поле version в manifest.json и manifest-firefox.json до текущей VERSION."""
-    manifest_paths = [
-        SRC_DIR / "manifest.json",
-        SRC_DIR / "manifest-firefox.json",
-    ]
-    for path in manifest_paths:
-        try:
-            text = path.read_text(encoding="utf-8")
-        except FileNotFoundError:
-            print(f"Warning: manifest not found: {path}")
-            continue
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            print(f"Warning: could not parse {path}: {e}")
-            continue
-        if data.get("version") == VERSION:
-            continue
-        data["version"] = VERSION
-        path.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        print(f"Updated version in {path} to {VERSION}")
+def numeric_version(version: str) -> tuple[int, int, int, int]:
+    """Browser comparison pads omitted components with zero."""
+    if not isinstance(version, str) or not re.fullmatch(r"(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){0,3}", version):
+        raise ValueError(f"Invalid numeric manifest version: {version!r}")
+    numbers = [int(part) for part in version.split(".")]
+    if any(number > 65535 for number in numbers) or not any(numbers):
+        raise ValueError(f"Invalid numeric manifest version: {version!r}")
+    return tuple(numbers + [0] * (4 - len(numbers)))
 
 
-def build_chromium():
-    """Build Chromium version (Chrome, Edge, Opera)"""
-    print("Creating Chromium version...")
-
-    files = [
-        "manifest.json",
-        "popup.html",
-        "popup.css",
-        "popup.js",
-        "content.js",
-        "background.js",
-        "LICENSE",
-        "icons",
-    ]
-
-    versioned_name = BASE_DIR / f"TS_switcher-{VERSION}-chromium.zip"
-    latest_name = BASE_DIR / "TS_switcher-chromium.zip"
-
-    with zipfile.ZipFile(versioned_name, "w", zipfile.ZIP_DEFLATED) as zipf:
-        for item in files:
-            src_path = SRC_DIR / item
-            if src_path.is_file():
-                arcname = item
-                zipf.write(src_path, arcname)
-            elif src_path.is_dir():
-                for root, dirs, files in os.walk(src_path):
-                    for file in files:
-                        file_path = Path(root) / file
-                        arcname = os.path.relpath(file_path, SRC_DIR)
-                        zipf.write(file_path, arcname)
-
-    print(f"✓ Created {versioned_name.name}")
-
-    shutil.copyfile(versioned_name, latest_name)
-    print(f"✓ Created {latest_name.name}")
+def to_manifest_version(version: str) -> str:
+    """Validate the release name before using it in manifest fields or file names."""
+    match = re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-beta\.(0|[1-9][0-9]*))?", version)
+    if not match:
+        raise ValueError(f"Invalid release version: {version!r}; expected X.Y.Z[-beta.N]")
+    major, minor, patch, beta = match.groups()
+    numbers = [int(major), int(minor), int(patch)]
+    if beta is not None:
+        if not 1 <= int(beta) <= 65535:
+            raise ValueError("Beta number must be between 1 and 65535")
+        numbers.append(int(beta))
+    result = ".".join(map(str, numbers))
+    numeric_version(result)
+    return result
 
 
-def build_firefox():
-    """Build Firefox version with manifest V2"""
-    print("Creating Firefox version...")
+def required_references(manifest: dict) -> set[str]:
+    references = set(manifest["icons"].values()) | {manifest["options_ui"]["page"]}
+    action = manifest.get("action", manifest.get("browser_action", {}))
+    references.add(action["default_popup"])
+    references.update(action["default_icon"].values())
+    background = manifest["background"]
+    references.update(background.get("scripts", []))
+    if "service_worker" in background:
+        references.add(background["service_worker"])
+    for script in manifest.get("content_scripts", []):
+        references.update(script.get("js", []))
+        references.update(script.get("css", []))
+    return references
 
-    # Create temporary directory in repo root
-    temp_dir = BASE_DIR / "firefox_temp"
-    if temp_dir.exists():
-        shutil.rmtree(temp_dir)
-    temp_dir.mkdir()
 
-    try:
-        # Copy and rename files
-        # Манифест должен ссылаться на background.js (файл переименован при сборке)
-        manifest_src = SRC_DIR / "manifest-firefox.json"
-        with open(manifest_src, "r", encoding="utf-8") as f:
-            manifest_content = f.read().replace("background-firefox.js", "background.js")
-        manifest_dest = temp_dir / "manifest.json"
-        with open(manifest_dest, "w", encoding="utf-8") as f:
-            f.write(manifest_content)
-
-        shutil.copy(SRC_DIR / "background-firefox.js", temp_dir / "background.js")
-        shutil.copy(SRC_DIR / "popup.html", temp_dir)
-        shutil.copy(SRC_DIR / "popup.css", temp_dir)
-        shutil.copy(SRC_DIR / "popup.js", temp_dir)
-        shutil.copy(SRC_DIR / "content.js", temp_dir)
-        shutil.copy(SRC_DIR / "LICENSE", temp_dir)
-
-        icons_src = SRC_DIR / "icons"
-        icons_dest = temp_dir / "icons"
-        shutil.copytree(icons_src, icons_dest)
-
-        versioned_name = BASE_DIR / f"TS_switcher-{VERSION}-firefox.zip"
-        latest_name = BASE_DIR / "TS_switcher-firefox.zip"
-
-        # Create ZIP
-        with zipfile.ZipFile(versioned_name, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk(temp_dir):
-                for file in files:
-                    file_path = Path(root) / file
-                    arcname = os.path.relpath(file_path, temp_dir)
-                    zipf.write(file_path, arcname)
-
-        print(f"✓ Created {versioned_name.name}")
-
-        shutil.copyfile(versioned_name, latest_name)
-        print(f"✓ Created {latest_name.name}")
-
-    finally:
-        # Cleanup
-        if temp_dir.exists():
-            shutil.rmtree(temp_dir)
+def package_files(browser: str, manifest_version: str) -> dict[str, bytes]:
+    manifest_name = "manifest-firefox.json" if browser == "firefox" else "manifest.json"
+    background_name = "background-firefox.js" if browser == "firefox" else "background.js"
+    manifest = json.loads((SRC_DIR / manifest_name).read_text(encoding="utf-8"))
+    expected_mv = 2 if browser == "firefox" else 3
+    if manifest.get("manifest_version") != expected_mv:
+        raise ValueError(f"{manifest_name}: expected manifest_version {expected_mv}")
+    source_version = manifest.get("version")
+    if numeric_version(manifest_version) < numeric_version(source_version):
+        raise ValueError(f"Refusing version downgrade in {manifest_name}: {source_version} -> {manifest_version}")
+    manifest["version"] = manifest_version
+    if browser == "firefox":
+        manifest["background"]["scripts"] = [
+            "background.js" if item == "background-firefox.js" else item
+            for item in manifest["background"]["scripts"]
+        ]
+    # All mandatory assets are read before creating either archive. Missing
+    # resources, including icons used only by the background, are hard failures.
+    files = {name: (SRC_DIR / name).read_bytes() for name in (*COMMON_FILES, *REQUIRED_ICONS)}
+    files["background.js"] = (SRC_DIR / background_name).read_bytes()
+    files["manifest.json"] = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    refs = required_references(manifest)
+    for page in ("popup.html", "options.html"):
+        refs.update(re.findall(r'(?:src|href)=[\"\']([^\"\'#]+)[\"\']', files[page].decode("utf-8")))
+    missing = {ref for ref in refs if "://" not in ref and ref not in files}
+    if missing:
+        raise ValueError(f"{browser}: package references missing files: {sorted(missing)}")
+    return files
 
 
 def main():
-    print("Building TS_switcher extension...")
-    print()
-
-    # Sync manifest versions with VERSION
-    update_manifest_versions()
-    print()
-
-    # Remove old archives from repository root
-    for old_zip in BASE_DIR.glob("TS_switcher-*.zip"):
-        try:
-            os.remove(old_zip)
-            print(f"Removed old {old_zip}")
-        except PermissionError:
-            print(f"Warning: Could not remove {old_zip} (file may be in use)")
-        except OSError as e:
-            print(f"Warning: Could not remove {old_zip}: {e}")
-    print()
-
-    # Build Chromium version
-    build_chromium()
-    print()
-
-    # Build Firefox version
-    build_firefox()
-    print()
-
-    print("Build complete! Files created in repository root:")
-    print(f"  - TS_switcher-{VERSION}-chromium.zip (Chrome, Edge, Opera, versioned)")
-    print("  - TS_switcher-chromium.zip (Chrome, Edge, Opera, latest)")
-    print(f"  - TS_switcher-{VERSION}-firefox.zip (Firefox, versioned)")
-    print("  - TS_switcher-firefox.zip (Firefox, latest)")
-    print()
-    print("Next steps:")
-    print("  1. Test the extension in each browser")
-    print("  2. Upload ZIP files to GitHub Releases")
+    version = os.environ.get("VERSION", DEFAULT_VERSION)
+    if version.startswith("v"):
+        version = version[1:]
+    manifest_version = to_manifest_version(version)
+    packages = {browser: package_files(browser, manifest_version) for browser in ("chromium", "firefox")}
+    # Unique staging avoids deleting shared directories. Validate and create all
+    # ZIPs before replacing output, and keep archives from previous versions.
+    with tempfile.TemporaryDirectory(prefix="ts-switcher-build-", dir=BASE_DIR) as temp:
+        staging = Path(temp)
+        for browser, files in packages.items():
+            archive = staging / f"TS_switcher-{version}-{browser}.zip"
+            with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
+                for name, content in sorted(files.items()):
+                    bundle.writestr(name, content)
+            shutil.copyfile(archive, staging / f"TS_switcher-{browser}.zip")
+        for archive in staging.iterdir():
+            archive.replace(BASE_DIR / archive.name)
+            print(f"Created {archive.name} (manifest {manifest_version})")
 
 
 if __name__ == "__main__":
     main()
-
