@@ -26,9 +26,8 @@ Scope and third-party materials
 ===============================
 
 The MIT license above applies to the original work of Anton Berezanskiy in
-TS_switcher. It does not relicense third-party materials. The font, palette
-materials and underlying Emoji Kitchen artwork are subject to the notices
-below. This distribution must not be described as exclusively MIT-licensed.
+TS_switcher. It does not relicense third-party materials. The font and
+palette materials are subject to the notices below. This distribution must not be described as exclusively MIT-licensed.
 
 1. Noto Sans (SIL Open Font License 1.1)
 --------------------------------------
@@ -236,26 +235,7 @@ license to the site's materials or represent that the administrators granted
 unrestricted sublicensing rights. Third-party palette notices above continue
 to apply to their respective materials.
 
-6. Extension icons (Emoji Kitchen source artwork)
-------------------------------------------------
-
-Files: icons/*.png (src/icons/ in the repository).
-
-The extension icons were prepared by Anton Berezanskiy using
-https://emojikitchen.dev/, as confirmed by the maintainer on 2026-10-04.
-That website provides access to Google's Emoji Kitchen illustrations:
-https://github.com/xsalazar/emoji-kitchen
-
-The MIT grant covers only the maintainer's original contributions to these
-icons, to the extent licensable by the maintainer. It does not relicense the
-underlying third-party artwork. An explicit license permitting redistribution
-and relicensing of that artwork was not identified during this review.
-Attribution is not a substitute for such permission. The license of the
-separate Google Noto Emoji project is not assumed to cover Emoji Kitchen
-illustrations. The same limitation applies where this artwork is reproduced
-in documentation screenshots.
-
-7. External development tools and services (not bundled)
+6. External development tools and services (not bundled)
 --------------------------------------------------------
 
 These tools are used externally and are not included in the extension ZIP:

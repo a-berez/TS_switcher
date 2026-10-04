@@ -11,7 +11,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 SRC_DIR = BASE_DIR / "src"
-DEFAULT_VERSION = "1.0.0-beta.8"
+DEFAULT_VERSION = "1.0.0"
 COMMON_FILES = (
     "fonts.css", "fonts/NotoSans-variable.ttf", "fonts/OFL-NotoSans.txt", "fonts/README.md",
     "popup.html", "popup.css", "popup.js", "options.html", "options.css",
