@@ -28,3 +28,6 @@ dist/
 *.out.md
 
 *logs*
+
+# Локальные служебные заметки
+/local-notes/
