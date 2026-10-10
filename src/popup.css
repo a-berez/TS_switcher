@@ -41,6 +41,11 @@ h3 { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transfo
 .switch-btn .btn-text { font-weight: 500; word-break: break-all; }
 .switch-btn.rating-btn { background: var(--info-bg); color: var(--info-text); border-color: var(--info-text); }
 .switch-btn.rating-btn:hover { background: var(--bg-surface-alt); border-color: var(--link); }
+#switch-rating-buttons { display: grid; grid-template-columns: repeat(var(--a2-switch-cols, 1), minmax(0, 1fr)); column-gap: 6px; }
+#switch-rating-buttons > .switch-btn { grid-column: 1 / -1; }
+#switch-rating-buttons > .a2-switch-btn { grid-column: auto; justify-content: center; gap: 4px; padding-inline: 4px; }
+.a2-switch-btn .btn-text { white-space: nowrap; word-break: normal; }
+
 .footer { padding: 10px; border-top: 1px solid var(--border); background: var(--bg-surface); }
 .copy-grid { display: flex; flex-direction: column; gap: 6px; }
 .copy-row { display: grid; grid-template-columns: repeat(var(--copy-cols, 1), minmax(0, 1fr)); gap: 6px; }
@@ -48,7 +53,7 @@ h3 { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transfo
 .copy-btn-secondary { min-width: 0; width: 100%; font-size: 10px; padding: 6px 8px; }
 .copy-btn-ts { border-color: var(--copy-ts-border, var(--border-strong)); background: var(--copy-ts-bg, var(--bg-strong)); color: var(--copy-ts-text, var(--text-strong)); }
 .copy-btn-ts:hover { background: var(--copy-ts-hover-bg, var(--bg-surface-alt)); color: var(--copy-ts-hover-text, var(--text)); }
-.copy-btn-rating { background: var(--info-bg); color: var(--info-text); border-color: var(--info-text); }
+.copy-btn-rating { padding-inline: 2px; background: var(--info-bg); color: var(--info-text); border-color: var(--info-text); }
 .copy-btn-rating:hover { background: var(--bg-surface-alt); border-color: var(--link); }
 .copy-message { margin-top: 6px; padding: 6px; background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); text-align: center; border-radius: 4px; font-size: 10px; }
 button:focus-visible, select:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }

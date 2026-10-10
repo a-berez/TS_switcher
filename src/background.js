@@ -23,6 +23,7 @@ const ICON_PATHS = {
 const AUTH_ALLOW_RULE_ID = 98;
 const DIRECT_BYPASS_RULE_ID = 99;
 const DNR_RULE_BASE_ID = 100;
+const A2_DNR_RULE_BASE_ID = 300;
 const LOGIN_GRACE_RULE_BASE_ID = 20000;
 const ORIGINAL_TS_HOST = Sites.TS_HOSTS[0];
 const DIRECT_PARAM = 'ts_switcher_direct';
@@ -46,7 +47,7 @@ function buildDirectBypassRule() {
         priority: 10,
         action: { type: 'allow' },
         condition: {
-            regexFilter: '^https://(' + Sites.TS_HOSTS.map(escapeRegex).join('|')
+            regexFilter: '^https://(' + Sites.TS_HOSTS.concat(Sites.A2_HOSTS).map(escapeRegex).join('|')
                 + ')/[^?#]*\\?([^#]*&)?' + escapeRegex(DIRECT_PARAM) + '=1(&|#|$)',
             isUrlFilterCaseSensitive: true,
             resourceTypes: ['main_frame']
@@ -122,7 +123,8 @@ async function restoreTabState(tabs) {
             return rule.id >= LOGIN_GRACE_RULE_BASE_ID
                 && liveIds.has(rule.id - LOGIN_GRACE_RULE_BASE_ID);
         }).map(function (rule) {
-            return { ...rule, action: { type: 'allow' } };
+            return { ...rule, action: { type: 'allow' },
+                condition: { ...rule.condition, requestDomains: Sites.TS_HOSTS } };
         });
         await chrome.declarativeNetRequest.updateSessionRules({
             removeRuleIds: existing.map(function (rule) { return rule.id; }), addRules: addRules
@@ -180,7 +182,7 @@ function setLoginGrace(tabId, enabled) {
                 id: ruleId,
                 priority: 20,
                 action: { type: 'allow' },
-                condition: { tabIds: [tabId], resourceTypes: ['main_frame'] }
+                condition: { tabIds: [tabId], requestDomains: Sites.TS_HOSTS, resourceTypes: ['main_frame'] }
             }] : []
         });
     });
@@ -261,35 +263,32 @@ async function applyRedirectRules() {
 
     const addRules = [buildDirectBypassRule(), buildAuthAllowRule()];
 
-    if (preferred === 'off') {
-        await chrome.declarativeNetRequest.updateDynamicRules({
-            removeRuleIds: removeRuleIds,
-            addRules: addRules
-        });
-        cachedPreferred = preferred;
-        return;
-    }
-
-    const otherHosts = Sites.TS_HOSTS.filter(function (h) { return h !== preferred; });
-    otherHosts.forEach(function (host, index) {
-        addRules.push({
-            id: DNR_RULE_BASE_ID + index,
-            priority: 1,
-            action: {
-                type: 'redirect',
-                redirect: {
-                    transform: {
-                        scheme: 'https',
-                        host: preferred
+    const groups = [
+        { hosts: Sites.TS_HOSTS, target: preferred, base: DNR_RULE_BASE_ID },
+        { hosts: Sites.A2_HOSTS, target: settings.preferredA2Host, base: A2_DNR_RULE_BASE_ID }
+    ];
+    for (const { hosts, target, base } of groups) {
+        if (target === 'off') continue;
+        hosts.filter(host => host !== target).forEach(function (host, index) {
+            addRules.push({
+                id: base + index,
+                priority: 1,
+                action: {
+                    type: 'redirect',
+                    redirect: {
+                        transform: {
+                            scheme: 'https',
+                            host: target
+                        }
                     }
+                },
+                condition: {
+                    regexFilter: buildTsRedirectRegexFilter(host),
+                    resourceTypes: ['main_frame']
                 }
-            },
-            condition: {
-                regexFilter: buildTsRedirectRegexFilter(host),
-                resourceTypes: ['main_frame']
-            }
+            });
         });
-    });
+    }
 
     await chrome.declarativeNetRequest.updateDynamicRules({
         removeRuleIds: removeRuleIds,

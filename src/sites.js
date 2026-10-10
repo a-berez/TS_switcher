@@ -9,12 +9,14 @@ const Sites = (function () {
         'rating.pecheny.ru'
     ];
 
+    const A2_HOSTS = ['a2.pecheny.me', 'a2.pecheny.kz', 'a2.pecheny.ru'];
+
     const RATING_HOSTS = [
         'rating.chgk.gg',
         'rating.chgk.fun',
         'chgk.quest',
         'elo-chgk.uk',
-        'a2.pecheny.me'
+        ...A2_HOSTS
     ];
 
     const ALL_HOSTS = TS_HOSTS.concat(RATING_HOSTS);
@@ -28,7 +30,9 @@ const Sites = (function () {
         'rating.chgk.fun': { name: 'Рейтинг (rating.chgk.fun)', short: '.fun', color: '#2196f3', family: 'rating' },
         'chgk.quest': { name: 'Рейтинг (chgk.quest)', short: 'quest', color: '#2196f3', family: 'rating' },
         'elo-chgk.uk': { name: 'Рейтинг (elo-chgk.uk)', short: 'elo', color: '#2196f3', family: 'rating' },
-        'a2.pecheny.me': { name: 'Рейтинг (a2.pecheny.me)', short: 'a2', color: '#2196f3', family: 'rating' }
+        'a2.pecheny.kz': { name: 'Рейтинг (a2.pecheny.kz)', short: 'a2.kz', color: '#2196f3', family: 'rating' },
+        'a2.pecheny.ru': { name: 'Рейтинг (a2.pecheny.ru)', short: 'a2.ru', color: '#2196f3', family: 'rating' },
+        'a2.pecheny.me': { name: 'Рейтинг (a2.pecheny.me)', short: 'a2.me', color: '#2196f3', family: 'rating' }
     };
 
     const PAGE_TYPES = { PLAYER: 'player', TOURNAMENT: 'tournament', TEAM: 'team' };
@@ -46,6 +50,10 @@ const Sites = (function () {
 
     function isTsHost(host) {
         return TS_HOSTS.indexOf(host) >= 0;
+    }
+
+    function isA2Host(host) {
+        return A2_HOSTS.indexOf(host) >= 0;
     }
 
     function isRatingHost(host) {
@@ -103,7 +111,7 @@ const Sites = (function () {
             return { type: m[1], id: m[2], tail: m[3] || '' };
         }
 
-        if (host === 'elo-chgk.uk' || host === 'a2.pecheny.me') {
+        if (host === 'elo-chgk.uk' || isA2Host(host)) {
             const m = pathname.match(/^\/(players|teams|tournaments)\/(\d+)(\/.*)?$/);
             if (!m) return null;
             const type = m[1] === 'teams' ? PAGE_TYPES.TEAM
@@ -119,12 +127,12 @@ const Sites = (function () {
         return isHomePage(path, host) || getPageInfo(path, host) !== null;
     }
 
-    /** Exact mapping for switch/copy: home, player/tournament/team, or TS↔TS (shared path). */
+    /** Exact mapping for switch/copy: home, player/tournament/team, or TS↔TS / A2↔A2 (shared path). */
     function hasExactPath(path, fromHost, toHost) {
         if (fromHost === toHost) return true;
         if (isHomePage(path, fromHost)) return true;
         if (getPageInfo(path, fromHost) !== null) return true;
-        return isTsHost(fromHost) && isTsHost(toHost);
+        return (isTsHost(fromHost) && isTsHost(toHost)) || (isA2Host(fromHost) && isA2Host(toHost));
     }
 
     function buildPathForPage(info, host) {
@@ -153,11 +161,11 @@ const Sites = (function () {
             return `/${seg}/${id}`;
         }
 
-        if (host === 'elo-chgk.uk' || host === 'a2.pecheny.me') {
+        if (host === 'elo-chgk.uk' || isA2Host(host)) {
             const seg = type === PAGE_TYPES.TEAM ? 'teams'
                 : type === PAGE_TYPES.PLAYER ? 'players'
                     : 'tournaments';
-            return `/${seg}/${id}` + (host === 'a2.pecheny.me' ? '/' : '');
+            return `/${seg}/${id}` + (isA2Host(host) ? '/' : '');
         }
 
         return getDefaultHome(host);
@@ -180,8 +188,9 @@ const Sites = (function () {
     }
 
     function convertPath(path, fromHost, toHost) {
-        // TS mirrors share the entire route, including aliases and subpages.
-        if (fromHost === toHost || (isTsHost(fromHost) && isTsHost(toHost))) return path;
+        // Mirrors within TS or A2 share the entire route, including subpages.
+        if (fromHost === toHost || (isTsHost(fromHost) && isTsHost(toHost))
+            || (isA2Host(fromHost) && isA2Host(toHost))) return path;
 
         const { suffix } = splitPath(path);
         const fullSuffix = suffixForTarget(suffix, fromHost);
@@ -212,11 +221,13 @@ const Sites = (function () {
 
     return {
         TS_HOSTS,
+        A2_HOSTS,
         RATING_HOSTS,
         ALL_HOSTS,
         HOST_META,
         PAGE_TYPES,
         isTsHost,
+        isA2Host,
         isRatingHost,
         isSupportedHost,
         isHomePage,

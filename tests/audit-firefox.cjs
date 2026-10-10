@@ -128,10 +128,18 @@ async function rdp(port){
   await page.emulateMedia({colorScheme:'light'});
   check('gg follows page media change',await themeState(['rating','light','normal']),['rating','light','normal']);
   await options('Settings.save({ratingColorScheme:"dark"})');
-  for(const host of ['rating.chgk.fun','chgk.quest','elo-chgk.uk','a2.pecheny.me']){
+  for(const host of ['rating.chgk.fun','chgk.quest','elo-chgk.uk','a2.pecheny.me','a2.pecheny.kz','a2.pecheny.ru']){
    await navigate('https://'+host+'/');await client.evaluateAsync(popupActor,'refreshPopup()');
    check('rating manual mode on '+host,await themeState(['rating','dark','normal']),['rating','dark','normal']);
   }
+  await options('(async()=>{const el=document.getElementById("opt-preferred-a2");el.value="a2.pecheny.kz";await saveFromForm({target:el});})()');
+  check('options saves A2 preference',await run('(await Settings.load()).preferredA2Host'),'a2.pecheny.kz');
+  await navigate('https://rating.pecheny.me/login?ts_switcher_direct=1');
+  check('A2 redirects during TS login grace',await navigate('https://a2.pecheny.me/releases/561/?x=1#team'),'https://a2.pecheny.kz/releases/561/?x=1#team');
+  check('A2 bypass cleans marker and preserves route',await navigate('https://a2.pecheny.ru/method/?ts_switcher_direct=1#info'),'https://a2.pecheny.ru/method/#info');
+  check('next A2 navigation uses preference',await navigate('https://a2.pecheny.ru/players/42/'),'https://a2.pecheny.kz/players/42/');
+  await run('Settings.save({preferredA2Host:"off"})');
+  check('A2 off removes interception',await navigate('https://a2.pecheny.me/method/'),'https://a2.pecheny.me/method/');
   report.passed=report.checks.filter(c=>c.pass).length;report.failed=report.checks.length-report.passed;process.exitCode=report.failed?1:0;
  }catch(error){report.fatal=String(error.stack||error);console.error(error);process.exitCode=2;}
  finally{

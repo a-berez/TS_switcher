@@ -21,14 +21,14 @@ function check(name,pass,details){results.push({name,status:pass?'PASS':'FAIL',d
  await source.goto('https://rating.chgk.info/players/123/statistics?role=narrator#row');
  await popup.goto(base+'/popup.html');await source.bringToFront();await popup.evaluate(()=>refreshPopup());
  let state=await popup.evaluate(()=>({currentHost,currentPath,switchCount:document.querySelectorAll('#switch-ts-buttons button,#switch-rating-buttons button').length,copyCount:document.querySelectorAll('.copy-row button').length,copyTitle:document.querySelector('#copy-ts-row button')?.title}));
- check('Player popup has eight switches and nine copy buttons',state.switchCount===8&&state.copyCount===9,state);
+ check('Player popup has ten switches and eleven copy buttons',state.switchCount===10&&state.copyCount===11,state);
  check('Copy current host retains fragment',state.copyTitle?.endsWith('#row'),state.copyTitle);
  const titles=await popup.locator('#copy-rating-row button').evaluateAll(nodes=>nodes.map(n=>n.title));
- check('Rating links use canonical entity paths',JSON.stringify(titles)===JSON.stringify(['https://rating.chgk.gg/b/player/123/','https://rating.chgk.fun/player/123','https://chgk.quest/player/123','https://elo-chgk.uk/players/123','https://a2.pecheny.me/players/123/']),titles);
+ check('Rating links use canonical entity paths',JSON.stringify(titles)===JSON.stringify(['https://rating.chgk.gg/b/player/123/','https://rating.chgk.fun/player/123','https://chgk.quest/player/123','https://elo-chgk.uk/players/123','https://a2.pecheny.me/players/123/','https://a2.pecheny.kz/players/123/','https://a2.pecheny.ru/players/123/']),titles);
  await source.goto('https://rating.chgk.info/tournaments/13362');await popup.evaluate(()=>refreshPopup());
  await popup.waitForFunction(()=>currentPath==='/tournaments/13362'&&!refreshInFlight&&!refreshQueued);
  const tournamentLinks=await popup.locator('#switch-rating-buttons button').evaluateAll(nodes=>nodes.map(n=>n.title));
- check('Plural tournament route shows all rating switches',JSON.stringify(tournamentLinks)===JSON.stringify(['https://rating.chgk.gg/b/tournament/13362/','https://rating.chgk.fun/tournament/13362','https://chgk.quest/tournament/13362','https://elo-chgk.uk/tournaments/13362','https://a2.pecheny.me/tournaments/13362/']),tournamentLinks);
+ check('Plural tournament route shows all rating switches',JSON.stringify(tournamentLinks)===JSON.stringify(['https://rating.chgk.gg/b/tournament/13362/','https://rating.chgk.fun/tournament/13362','https://chgk.quest/tournament/13362','https://elo-chgk.uk/tournaments/13362','https://a2.pecheny.me/tournaments/13362/','https://a2.pecheny.kz/tournaments/13362/','https://a2.pecheny.ru/tournaments/13362/']),tournamentLinks);
  const tournamentCopies=await popup.locator('#copy-rating-row button').evaluateAll(nodes=>nodes.map(n=>n.title));
  check('Plural tournament route shows all rating copies',JSON.stringify(tournamentCopies)===JSON.stringify(tournamentLinks),tournamentCopies);
  await popup.locator('#switch-rating-buttons button').first().click();await source.waitForURL('https://rating.chgk.gg/b/tournament/13362/');
@@ -36,8 +36,9 @@ function check(name,pass,details){results.push({name,status:pass?'PASS':'FAIL',d
  await source.goto('https://rating.chgk.info/teams/49804');await popup.evaluate(()=>refreshPopup());
  await popup.waitForFunction(()=>currentPath==='/teams/49804'&&!refreshInFlight&&!refreshQueued);
  const grid=await popup.locator('#copy-rating-row').evaluate(row=>({cols:getComputedStyle(row).gridTemplateColumns.split(' ').length,fit:Array.from(row.children).every(b=>b.scrollWidth<=b.clientWidth)}));
- check('Five rating copy buttons fit the popup',grid.cols===5&&grid.fit,grid);
- await popup.locator('#switch-rating-buttons button').last().click();await source.waitForURL('https://a2.pecheny.me/teams/49804/');
+ check('Seven rating copy buttons fit the popup',grid.cols===7&&grid.fit,grid);
+ await popup.locator('#switch-rating-section').screenshot({path:path.join(root,'tests','audit-a2-row.out.png')});
+ await popup.locator('#switch-rating-buttons button').filter({hasText:'a2.me'}).click();await source.waitForURL('https://a2.pecheny.me/teams/49804/');
  check('TS team switches to A2 with the same ID',source.url()==='https://a2.pecheny.me/teams/49804/',source.url());
  await popup.evaluate(()=>refreshPopup());await popup.waitForFunction(()=>currentHost==='a2.pecheny.me'&&!refreshInFlight&&!refreshQueued);
  await popup.locator('#switch-ts-buttons button').first().click();await source.waitForURL('https://rating.chgk.info/teams/49804/');
@@ -45,7 +46,7 @@ function check(name,pass,details){results.push({name,status:pass?'PASS':'FAIL',d
  await source.goto('https://a2.pecheny.me/releases/561/');await popup.evaluate(()=>refreshPopup());
  await popup.waitForFunction(()=>currentPath==='/releases/561/'&&!refreshInFlight&&!refreshQueued);
  const archive=await popup.evaluate(()=>({switches:document.querySelectorAll('#switch-ts-buttons button,#switch-rating-buttons button').length,copies:Array.from(document.querySelectorAll('.copy-row button')).map(b=>b.title)}));
- check('A2 release only offers copying the current page',archive.switches===0&&JSON.stringify(archive.copies)===JSON.stringify(['https://a2.pecheny.me/releases/561/']),archive);
+ check('A2 release offers only its mirrors',archive.switches===2&&JSON.stringify(archive.copies)===JSON.stringify(['https://a2.pecheny.me/releases/561/','https://a2.pecheny.kz/releases/561/','https://a2.pecheny.ru/releases/561/']),archive);
  await popup.screenshot({path:path.join(root,'tests','audit-a2.out.png'),fullPage:true});
  await source.goto('https://rating.pecheny.me/venues/5508?x=1');await popup.evaluate(()=>refreshPopup());
  state=await popup.evaluate(()=>({switchCount:document.querySelectorAll('#switch-ts-buttons button,#switch-rating-buttons button').length,copyCount:document.querySelectorAll('.copy-row button').length}));
@@ -84,17 +85,32 @@ function check(name,pass,details){results.push({name,status:pass?'PASS':'FAIL',d
  check('Explicit login stays on selected mirror',routing.url()==='https://rating.pecheny.me/login',routing.url());
  await routing.goto('https://rating.pecheny.me/players/42');
  check('Login grace keeps subsequent mirror navigation',routing.url()==='https://rating.pecheny.me/players/42',routing.url());
+ await w.evaluate(async()=>{await Settings.save({preferredA2Host:'a2.pecheny.kz'});await updateRedirectRules();});
+ await routing.goto('https://a2.pecheny.me/releases/561/?x=2#team');
+ check('A2 redirects during TS login grace with full route',routing.url()==='https://a2.pecheny.kz/releases/561/?x=2#team',routing.url());
+ await popup.evaluate(()=>refreshPopup());await popup.waitForFunction(()=>currentHost==='a2.pecheny.kz'&&!refreshInFlight&&!refreshQueued);
+ await popup.evaluate(()=>navigateToHost('a2.pecheny.ru'));
+ await routing.waitForURL('https://a2.pecheny.ru/releases/561/?x=2#team');
+ check('Explicit A2 switch bypasses preferred and cleans marker',routing.url()==='https://a2.pecheny.ru/releases/561/?x=2#team',routing.url());
+ check('A2 switch keeps independent preferences',(await w.evaluate(()=>Settings.load())).preferredA2Host==='a2.pecheny.kz');
+ await routing.goto('https://a2.pecheny.ru/method/');
+ check('Next A2 navigation uses preferred again',routing.url()==='https://a2.pecheny.kz/method/',routing.url());
+ await routing.goto('https://rating.chgk.gg/b/player/42/');
+ check('A2 preference does not redirect other ratings',routing.url()==='https://rating.chgk.gg/b/player/42/',routing.url());
+ await w.evaluate(async()=>{await Settings.save({preferredA2Host:'off'});await updateRedirectRules();});
+ await routing.goto('https://a2.pecheny.me/method/');
+ check('Disabling A2 preference removes interception',routing.url()==='https://a2.pecheny.me/method/',routing.url());
  await routing.goto('https://rating.pecheny.me/logout');
  await routing.goto('https://rating.pecheny.me/players/43');
  check('Preferred resumes after redirecting logout',routing.url()==='https://rating.pecheny.ru/players/43',routing.url());
  await w.evaluate(async()=>{await Settings.setPreferredTsHost('off');await updateRedirectRules();});
- const hosts=['rating.chgk.info','rating.pecheny.me','rating.pecheny.kz','rating.pecheny.ru','rating.chgk.gg','rating.chgk.fun','chgk.quest','elo-chgk.uk','a2.pecheny.me'];
+ const hosts=['rating.chgk.info','rating.pecheny.me','rating.pecheny.kz','rating.pecheny.ru','rating.chgk.gg','rating.chgk.fun','chgk.quest','elo-chgk.uk','a2.pecheny.me','a2.pecheny.kz','a2.pecheny.ru'];
  for(const host of hosts){
-   const player=host==='a2.pecheny.me'?'/players/123/':host==='rating.chgk.gg'?'/b/player/123/':host==='rating.chgk.fun'||host==='chgk.quest'?'/player/123':'/players/123';
+   const player=host.startsWith('a2.pecheny.')?'/players/123/':host==='rating.chgk.gg'?'/b/player/123/':host==='rating.chgk.fun'||host==='chgk.quest'?'/player/123':'/players/123';
    await routing.goto('https://'+host+player);await popup.evaluate(()=>refreshPopup());
    await popup.waitForFunction(host=>currentHost===host,host);
    const counts=await popup.evaluate(()=>({switches:document.querySelectorAll('#switch-ts-buttons button,#switch-rating-buttons button').length,copies:document.querySelectorAll('.copy-row button').length}));
-   check('Player UI on '+host,counts.switches===8&&counts.copies===9,counts);
+   check('Player UI on '+host,counts.switches===10&&counts.copies===11,counts);
  }
 
  await routing.goto('https://rating.pecheny.me/players/123');
@@ -110,6 +126,9 @@ function check(name,pass,details){results.push({name,status:pass?'PASS':'FAIL',d
  const options=await c.newPage();await options.goto(base+'/options.html');await options.locator('#opt-preferred').selectOption('rating.pecheny.ru');await options.getByText('Сохранено',{exact:true}).waitFor();const saved=await w.evaluate(()=>Settings.load());check('Options persists preferred host',saved.preferredTsHost==='rating.pecheny.ru',saved.preferredTsHost);
  await w.evaluate(()=>Settings.setPreferredTsHost('rating.pecheny.me'));await options.locator('#opt-fallback').uncheck();await options.waitForTimeout(500);const newer=await w.evaluate(()=>Settings.load());check('Existing options preserves preferred changed elsewhere',newer.preferredTsHost==='rating.pecheny.me',newer);
 
+ await options.locator('#opt-preferred-a2').selectOption('a2.pecheny.ru');
+ await options.waitForFunction(()=>document.getElementById('save-status').textContent==='Сохранено'&&pendingSaves===0);
+ check('Options persists independent A2 preference',(await w.evaluate(()=>Settings.load())).preferredA2Host==='a2.pecheny.ru');
  // Two extension contexts update independent settings at the same time.
  await Promise.all([popup.evaluate(()=>Settings.save({fallbackOnError:true})),options.evaluate(()=>Settings.setPreferredTsHost('rating.pecheny.kz'))]);
  const parallel=await w.evaluate(()=>Settings.load());

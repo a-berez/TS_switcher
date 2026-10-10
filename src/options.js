@@ -7,10 +7,12 @@ let saveVersion = 0;
 let pendingSaves = 0;
 
 document.addEventListener('DOMContentLoaded', async function () {
-    buildPreferredSelect('off');
+    buildPreferredSelect('opt-preferred', Sites.TS_HOSTS);
+    buildPreferredSelect('opt-preferred-a2', Sites.A2_HOSTS);
     Object.keys(themeFields).forEach(id => document.getElementById(id).addEventListener('change', saveFromForm));
     buildHostsTable(Settings.getDefaults());
     document.getElementById('opt-preferred').addEventListener('change', saveFromForm);
+    document.getElementById('opt-preferred-a2').addEventListener('change', saveFromForm);
     document.getElementById('opt-fallback').addEventListener('change', saveFromForm);
     optionsApi.storage.onChanged.addListener(function (changes, area) {
         if (area === 'local' && changes[Settings.STORAGE_KEY]) {
@@ -30,6 +32,7 @@ async function refreshOptions() {
     OptionsTheme.update(settings);
     Object.entries(themeFields).forEach(([id, key]) => { document.getElementById(id).value = settings[key]; });
     document.getElementById('opt-preferred').value = settings.preferredTsHost;
+    document.getElementById('opt-preferred-a2').value = settings.preferredA2Host;
     document.getElementById('opt-fallback').checked = settings.fallbackOnError;
     document.querySelectorAll('#hosts-tbody input[data-host]').forEach(function (cb) {
         const map = cb.dataset.kind === 'switch' ? settings.visibleSwitchHosts : settings.visibleCopyHosts;
@@ -37,20 +40,20 @@ async function refreshOptions() {
     });
 }
 
-function buildPreferredSelect(current) {
-    const select = document.getElementById('opt-preferred');
+function buildPreferredSelect(id, hosts) {
+    const select = document.getElementById(id);
     select.innerHTML = '';
     const off = document.createElement('option');
     off.value = 'off';
     off.textContent = 'Выключен';
     select.appendChild(off);
-    Sites.TS_HOSTS.forEach(function (host) {
+    hosts.forEach(function (host) {
         const opt = document.createElement('option');
         opt.value = host;
         opt.textContent = host;
         select.appendChild(opt);
     });
-    select.value = current;
+    select.value = 'off';
 }
 
 function buildHostsTable(settings) {
@@ -108,6 +111,8 @@ async function saveFromForm(event) {
     const partial = {};
     if (target === document.getElementById('opt-preferred')) {
         partial.preferredTsHost = target.value;
+    } else if (target === document.getElementById('opt-preferred-a2')) {
+        partial.preferredA2Host = target.value;
     } else if (target === document.getElementById('opt-fallback')) {
         partial.fallbackOnError = target.checked;
     } else if (themeFields[target.id]) {
@@ -124,7 +129,7 @@ async function saveFromForm(event) {
     try {
         const saved = await Settings.save(partial);
         if (version !== saveVersion) return;
-        if (partial.preferredTsHost && partial.preferredTsHost !== 'off' && saved.preferredTsHost !== partial.preferredTsHost) {
+        if (['preferredTsHost', 'preferredA2Host'].some(key => partial[key] && partial[key] !== 'off' && saved[key] !== partial[key])) {
             showStatus('Нельзя выбрать скрытый хост как предпочитаемый. Включите переключение для него.', true);
         } else {
             showStatus('Сохранено');

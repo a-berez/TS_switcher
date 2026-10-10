@@ -21,6 +21,7 @@ const ICON_PATHS = {
 };
 
 let cachedPreferred = 'off';
+let cachedPreferredA2 = 'off';
 let cachedFallbackOnError = true;
 
 const loginGraceTabs = new Set();
@@ -30,7 +31,7 @@ let settingsQueue = Promise.resolve();
 const ORIGINAL_TS_HOST = Sites.TS_HOSTS[0];
 const DIRECT_PARAM = 'ts_switcher_direct';
 
-const TS_URL_PATTERNS = Sites.TS_HOSTS.map(function (h) {
+const REDIRECT_URL_PATTERNS = Sites.TS_HOSTS.concat(Sites.A2_HOSTS).map(function (h) {
     return '*://' + h + '/*';
 });
 
@@ -71,6 +72,7 @@ function refreshCachedSettings() {
     const update = settingsQueue.then(async function () {
         const settings = await Settings.load();
         cachedPreferred = settings.preferredTsHost;
+        cachedPreferredA2 = settings.preferredA2Host;
         cachedFallbackOnError = settings.fallbackOnError;
     });
     settingsQueue = update.catch(function (error) {
@@ -123,6 +125,12 @@ async function redirectTsRequest(details) {
     await settingsQueue;
     try {
         const url = new URL(details.url);
+        if (Sites.isA2Host(url.hostname)) {
+            if (cachedPreferredA2 === 'off' || url.hostname === cachedPreferredA2
+                || url.searchParams.get(DIRECT_PARAM) === '1') return {};
+            url.hostname = cachedPreferredA2;
+            return { redirectUrl: url.toString() };
+        }
         rememberTsHost(details.tabId, url.hostname, url.pathname);
         if (Sites.isTsHost(url.hostname) && isLogoutPath(url.pathname)) {
             loginGraceTabs.delete(details.tabId);
@@ -222,7 +230,7 @@ async function bootstrap() {
 
 browser.webRequest.onBeforeRequest.addListener(
     redirectTsRequest,
-    { urls: TS_URL_PATTERNS, types: ['main_frame'] },
+    { urls: REDIRECT_URL_PATTERNS, types: ['main_frame'] },
     ['blocking']
 );
 

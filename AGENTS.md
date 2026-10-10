@@ -26,20 +26,21 @@ User-facing conversation: русский.
 - Chromium: Manifest V3, `chrome.action.setIcon`. Firefox: Manifest V2 с постоянным background; смена иконки не делается (`setIcon` — no-op).
 - Версия релиза `1.0.0-beta.N` упаковывается как `1.0.0.N`. `build.py` задаёт версию внутри ZIP, исходные manifest не меняет и понижение версии отвергает.
 - Записи `Settings` проходят через единую очередь background (`initializeBackground`); UI отправляет частичные изменения runtime-сообщением. Прямые записи общего объекта из UI возвращают гонки.
-- Кнопки switch/copy только при точном соответствии path (`Sites.hasExactPath`): главная, player/tournament/team, либо TS↔TS (общий path). Иначе кнопок «на главную за неимением соответствия» нет.
-- Между Турнирным сайтом и Рейтингом конвертируются главная и страницы игрока / турнира / команды; на TS при копировании/переключении сохраняются подпути и query; на рейтинги — канонический path без хвоста и параметров; между `.gg`, `.fun`, `chgk.quest`, `elo-chgk.uk` и `a2.pecheny.me` — через канонический тип страницы в `sites.js`.
+- Кнопки switch/copy только при точном соответствии path (`Sites.hasExactPath`): главная, player/tournament/team, либо TS↔TS / A2↔A2 (общий path). Иначе кнопок «на главную за неимением соответствия» нет.
+- Между Турнирным сайтом и Рейтингом конвертируются главная и страницы игрока / турнира / команды; на TS при копировании/переключении сохраняются подпути и query; на рейтинги — канонический path без хвоста и параметров; между `.gg`, `.fun`, `chgk.quest`, `elo-chgk.uk` и `a2.pecheny.me|kz|ru` — через канонический тип страницы в `sites.js`.
+- Preferred A2: отдельный `preferredA2Host` в options (off / a2.pecheny.me|kz|ru); DNR / webRequest сохраняет любой путь внутри A2. Явный клик обходит перехват через общий ts_switcher_direct. TS login grace ограничен TS-доменами, включая восстановленные session rules.
 - Preferred TS: DNR (Chromium) / webRequest (Firefox). `/login` и `/logout` на зеркалах не перехватываются preferred-правилами. Обход осознанного перехода из попапа: `?ts_switcher_direct=1` (DNR allow / webRequest skip), не tab-wide bypass.
 - Увод сайта на `rating.chgk.info/login` переписывается: при preferred — на preferred; при preferred=off — на последний TS-хост вкладки (не info). Обход: `?ts_switcher_direct=1` (ссылки «Войти» в options).
 - После `/login` preferred-redirection в этой вкладке выключен до запроса `/logout` или закрытия вкладки (login grace). Учитываются logout с HTTP redirect и info/login как конечный URL серверной цепочки.
 - Fallback очищается по `webNavigation.onCompleted`, а не `tabs.onUpdated complete`: последнее приходит и для страницы ошибки браузера. Отменённые навигации не считаются недоступностью сайта.
 - В options напротив TS-хостов (info / .me / .kz / .ru) есть ссылка «Войти» → `/login` в новой вкладке (с bypass-параметром).
 - Fallback-баннер показывает только хосты с включённой видимостью переключения; подписи — короткие (`.me`), полный хост в `title`.
-- Кнопки копирования: два ряда (ТС сверху, рейтинги снизу); колонки в ряду = число видимых кнопок (`--copy-cols`), по умолчанию четыре кнопки ТС и пять рейтингов. Текущий хост тоже показывается (в отличие от switch).
+- Кнопки копирования: два ряда (ТС сверху, рейтинги снизу); колонки в ряду = число видимых кнопок (`--copy-cols`), по умолчанию четыре кнопки ТС и семь рейтингов (A2: a2.me / a2.kz / a2.ru). Текущий хост тоже показывается (в отличие от switch).
 
 ## Verify
 
 - Быстрые проверки: `python tools/generate-themes.py --check`, `node tests/audit-themes.cjs`, `node tests/audit-ui.cjs`, `node tests/audit-background.cjs`, `python tests/audit-build.py`.
-- Настоящие браузеры и зависимости: `tests/README.md`. Ручная проверка: Chromium загрузить `src`; Firefox собрать `python build.py` и установить ZIP временно. Сценарии: 9 хостов, preferred `.ru`, вход/выход, fallback, options.
+- Настоящие браузеры и зависимости: `tests/README.md`. Ручная проверка: Chromium загрузить `src`; Firefox собрать `python build.py` и установить ZIP временно. Сценарии: 11 хостов, отдельный preferred A2, preferred `.ru`, вход/выход, fallback, options.
 
 ## Secrets and privacy
 

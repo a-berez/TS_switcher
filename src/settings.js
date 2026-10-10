@@ -54,6 +54,7 @@ const Settings = (function () {
     function getDefaults() {
         return {
             preferredTsHost: 'off',
+            preferredA2Host: 'off',
             tsColorScheme: 'auto',
             tsTheme: 'auto',
             tsContrast: 'auto',
@@ -77,6 +78,10 @@ const Settings = (function () {
         }
         if (merged.preferredTsHost !== 'off' && merged.visibleSwitchHosts[merged.preferredTsHost] === false) {
             merged.preferredTsHost = 'off';
+        }
+        if (merged.preferredA2Host !== 'off' && (!Sites.isA2Host(merged.preferredA2Host)
+            || merged.visibleSwitchHosts[merged.preferredA2Host] === false)) {
+            merged.preferredA2Host = 'off';
         }
         const themeValues = {
             tsColorScheme: ['auto', 'light', 'dark'],

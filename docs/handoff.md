@@ -1,27 +1,24 @@
-# Handoff: ручная публикация Chromium 1.1.0
+# Handoff: публикация 1.1.1
 Date: 2026-10-10
 Left by: Codex
 
 ## Goal
-Завершить публикацию Chromium 1.1.0 в Chrome Web Store. Владелец выбрал самостоятельную загрузку готового пакета.
+Опубликовать 1.1.1 с зеркалами и независимым перехватом A2. Подготовить ZIP для ручной загрузки в CWS.
 
 ## Done
-Коммит `423357f` (`v1.1.0`) отправлен в main. GitHub Release 1.1.0 опубликован; четыре ZIP сверены с исходниками релизного коммита и digest. Firefox 1.1.0 опубликован в AMO: публичный API подтвердил версию и статус public 2026-10-10. Готовый Chromium ZIP скопирован из GitHub Release в `dist/publish-1.1.0/TS_switcher-1.1.0-chromium.zip`; описание версии — `release-notes.txt` рядом. Папка dist исключена из Git.
+Версия повышена в обоих manifest и build.py; README и обе истории изменений обновлены. Проверки пройдены, оба ZIP собраны и сверены. Для CWS подготовлены dist/publish-1.1.1/TS_switcher-1.1.1-chromium.zip, release-notes.txt и SHA256SUMS.txt. Реализация и проверки описаны в status.md.
 
 ## Not done
-Chrome Web Store отклонил OAuth-авторизацию до загрузки. Неверен хотя бы один из client_id/client_secret/refresh_token. Секреты не менялись. Ручную загрузку выполняет владелец; её результат пока неизвестен.
+Нужно подтвердить результаты релизного workflow и публикации магазинов. Предыдущая автоматическая загрузка CWS отклонялась из-за OAuth; секреты не менялись.
 
 ## Invariants
-Не менять тег v1.1.0 и не перезапускать весь workflow: Firefox уже опубликован. В Chrome использовать существующую карточку TS_switcher, загрузить ZIP без внешней папки и без дополнительной упаковки. Не выводить значения секретов.
+Не менять прежние теги. Релиз запускается единственным коммитом v1.1.1 в main. Не отправлять тег отдельно: workflow создаст его сам. Если AMO уже принял версию, не перезапускать весь workflow ради CWS.
 
 ## Where to look
-[Actions](https://github.com/a-berez/TS_switcher/actions/runs/38065538225), [GitHub Release](https://github.com/a-berez/TS_switcher/releases/tag/v1.1.0), [карточка Chrome](https://chromewebstore.google.com/detail/tsswitcher/kbfllpfigjilnlfhkalpbjoigkfplblk), `docs/status.md`.
+.github/workflows/tag-from-commit.yml, docs/status.md, dist/publish-1.1.1/.
 
 ## Verify
-Chromium ZIP: manifest_version 3, version 1.1.0, 30 файлов, SHA256 `9681a69d1bde02d06a5196b6f803c8e2839c0ec7dae47a42a556feff7634ffa5`. После ручной загрузки проверить результат отправки и статус в магазине; принятие на проверку не равно публикации.
-
-## Open questions
-Когда Chrome Web Store примет и опубликует вручную отправленную версию.
+Проверить версию 1.1.1 и содержимое ZIP против релизного коммита, затем GitHub Release, Actions и отдельный результат каждого магазина.
 
 ## Next step
-Владельцу загрузить подготовленный ZIP в кабинет Chrome Web Store и отправить обновление на публикацию.
+После отправки релизного коммита проверить Actions и зафиксировать результат.

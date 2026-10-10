@@ -64,10 +64,10 @@ with tempfile.TemporaryDirectory(prefix="audit-build-", dir=ROOT / "tests") as t
     old_archive.write_bytes(b"previous release must survive")
     result = run_build(work)
     assert result.returncode == 0, result.stdout + result.stderr
-    check_packages(work, "1.1.0")
-    result = run_build(work, "v1.1.1")
-    assert result.returncode == 0, result.stdout + result.stderr
     check_packages(work, "1.1.1")
+    result = run_build(work, "v1.1.2")
+    assert result.returncode == 0, result.stdout + result.stderr
+    check_packages(work, "1.1.2")
     assert old_archive.read_bytes() == b"previous release must survive"
     for name, content in source_snapshot.items():
         assert (work / "src" / name).read_bytes() == content, f"build changed source: {name}"
@@ -193,7 +193,7 @@ with tempfile.TemporaryDirectory(prefix="audit-build-", dir=ROOT / "tests") as t
                         calls = work / "git-calls"
                         output.write_text("")
                         calls.write_text("")
-                        case_env = dict(ENV, COMMIT_MSG=("not a version" if state == "invalid-commit" else "v0.3.5" if state == "downgrade" else "v1.1.0"),
+                        case_env = dict(ENV, COMMIT_MSG=("not a version" if state == "invalid-commit" else "v0.3.5" if state == "downgrade" else "v1.1.1"),
                                         GITHUB_SHA="expected-sha", TAG_STATE="absent" if state == "downgrade" else state,
                                         GITHUB_OUTPUT=str(output), GIT_CALLS=str(calls))
                         result = subprocess.run([bash, "-e"], input=stub + script, cwd=work, env=case_env, capture_output=True, text=True)

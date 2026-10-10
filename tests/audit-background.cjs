@@ -12,7 +12,7 @@ function deferred() { let resolve; const promise = new Promise(r => { resolve = 
 async function boot(kind, options = {}) {
     const rules = new Map(options.rules || []), dynamic = new Map(), fallbacks = new Map(), errors = [], updates = [];
     const state = options.state || {};
-    const settings = { preferredTsHost: options.preferred || 'off', fallbackOnError: true };
+    const settings = { preferredTsHost: options.preferred || 'off', preferredA2Host: options.preferredA2 || 'off', fallbackOnError: true };
     let loadGate = options.gate, dynamicGate, dynamicActive = 0, maxDynamicActive = 0;
     const storage = { async get() { return { ...state }; }, async set(patch) { Object.assign(state, patch); }, async remove(keys) { for (const key of [keys].flat()) delete state[key]; } };
     const api = {
@@ -167,6 +167,45 @@ async function test(name, fn) { await fn(); count++; console.log('PASS:', name);
         const old = id => ({ id, priority: 20, action: { type: 'allowAllRequests' }, condition: { tabIds: [id - 20000], resourceTypes: ['main_frame'] } });
         const b = await boot('chromium', { tabs: [{ id: 7, url: mirror + '/players/42' }], rules: [[20007, old(20007)], [20008, old(20008)], [10001, old(10001)]] });
         assert.equal(b.rules.size, 1); assert.equal(b.rules.get(20007).action.type, 'allow');
+    });
+    await test('Firefox A2 preference is independent, preserves routes and honors bypass during TS login grace', async () => {
+        const b = await boot('firefox', { preferred: 'rating.pecheny.ru', preferredA2: 'a2.pecheny.kz' });
+        b.api.webNavigation.onCommitted.fire(detail(mirror + '/login')); await tick();
+        for (const host of ['a2.pecheny.me', 'a2.pecheny.ru']) {
+            assert.equal((await b.request('https://' + host + '/releases/561/?x=1#team')).redirectUrl, 'https://a2.pecheny.kz/releases/561/?x=1#team');
+            assert.equal((await b.request('https://' + host + '/?ts_switcher_direct=1')).redirectUrl, undefined);
+            assert.equal((await b.request('https://' + host + '/?ts_switcher_direct=10')).redirectUrl, 'https://a2.pecheny.kz/?ts_switcher_direct=10');
+        }
+        assert.equal((await b.request('https://a2.pecheny.kz/')).redirectUrl, undefined);
+        b.settings.preferredA2Host = 'off'; b.api.storage.onChanged.fire({ tsSwitcherSettings: {} }, 'local');
+        assert.equal((await b.request('https://a2.pecheny.me/')).redirectUrl, undefined);
+        b.settings.preferredA2Host = 'a2.pecheny.ru'; b.settings.preferredTsHost = 'off';
+        b.api.storage.onChanged.fire({ tsSwitcherSettings: {} }, 'local');
+        assert.equal((await b.request('https://a2.pecheny.me/')).redirectUrl, 'https://a2.pecheny.ru/');
+        assert.equal((await b.request('https://rating.chgk.gg/')).redirectUrl, undefined);
+        assert.deepEqual(b.errors, []);
+    });
+    await test('Chromium A2 rules coexist with TS and survive TS login grace, including restored old rules', async () => {
+        const old = { id: 20007, priority: 20, action: { type: 'allow' }, condition: { tabIds: [7], resourceTypes: ['main_frame'] } };
+        const b = await boot('chromium', { preferred: 'rating.pecheny.ru', preferredA2: 'a2.pecheny.kz', tabs: [{ id: 7, url: mirror + '/players/42' }], rules: [[20007, old]] });
+        assert.deepEqual(Array.from(b.rules.get(20007).condition.requestDomains), Array.from(b.eval('Sites.TS_HOSTS')));
+        b.api.webNavigation.onCommitted.fire(detail(mirror + '/login')); await tick();
+        assert.deepEqual(Array.from(b.rules.get(20007).condition.requestDomains), Array.from(b.eval('Sites.TS_HOSTS')));
+        assert.equal([...b.dynamic.values()].filter(r => r.action.type === 'redirect').length, 5);
+        const a2Rules = [...b.dynamic.values()].filter(r => r.id >= 300);
+        assert.equal(a2Rules.length, 2);
+        for (const host of ['a2.pecheny.me', 'a2.pecheny.ru']) {
+            const url = 'https://' + host + '/releases/561/?x=1#row';
+            const rule = a2Rules.find(r => new RegExp(r.condition.regexFilter).test(url));
+            assert.equal(rule.action.redirect.transform.host, 'a2.pecheny.kz');
+            assert(new RegExp(b.dynamic.get(99).condition.regexFilter).test('https://' + host + '/?ts_switcher_direct=1'));
+            assert.equal(new RegExp(b.dynamic.get(98).condition.regexFilter).test('https://' + host + '/login'), false);
+        }
+        b.settings.preferredTsHost = 'off'; b.api.storage.onChanged.fire({ tsSwitcherSettings: {} }, 'local'); await tick();
+        assert.equal([...b.dynamic.values()].filter(r => r.action.type === 'redirect').length, 2);
+        b.settings.preferredA2Host = 'off'; b.api.storage.onChanged.fire({ tsSwitcherSettings: {} }, 'local'); await tick();
+        assert.equal([...b.dynamic.values()].filter(r => r.action.type === 'redirect').length, 0);
+        assert.deepEqual(b.errors, []);
     });
     console.log(count + ' background regression scenarios passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

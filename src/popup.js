@@ -260,6 +260,7 @@ function renderSwitchButtons() {
 
     let tsCount = 0;
     let ratingCount = 0;
+    let a2Count = 0;
 
     Sites.TS_HOSTS.forEach(function (host) {
         if (host === currentHost) return;
@@ -275,8 +276,10 @@ function renderSwitchButtons() {
         if (!Sites.hasExactPath(currentPath, currentHost, host)) return;
         ratingContainer.appendChild(createSwitchButton(host, true));
         ratingCount++;
+        if (Sites.isA2Host(host)) a2Count++;
     });
 
+    ratingContainer.style.setProperty('--a2-switch-cols', String(Math.max(a2Count, 1)));
     tsSection.classList.toggle('hidden', tsCount === 0);
     ratingSection.classList.toggle('hidden', ratingCount === 0);
 }
@@ -284,13 +287,13 @@ function renderSwitchButtons() {
 function createSwitchButton(host, isRating) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'switch-btn' + (isRating ? ' rating-btn' : '');
+    btn.className = 'switch-btn' + (isRating ? ' rating-btn' : '') + (Sites.isA2Host(host) ? ' a2-switch-btn' : '');
     const icon = document.createElement('span');
     icon.className = 'btn-icon';
     icon.textContent = isRating ? '⭐' : (host === Sites.TS_HOSTS[0] ? '🏠' : '📡');
     const text = document.createElement('span');
     text.className = 'btn-text';
-    text.textContent = host;
+    text.textContent = Sites.isA2Host(host) ? Sites.HOST_META[host].short : host;
     btn.appendChild(icon);
     btn.appendChild(text);
     const targetPath = Sites.convertPath(currentPath, currentHost, host);
@@ -310,7 +313,7 @@ async function navigateToHost(host, pathOverride) {
         const path = pathOverride != null ? pathOverride : currentPath;
         const newPath = Sites.convertPath(path, currentHost, host);
         let newUrl = Sites.buildUrl(host, newPath);
-        if (Sites.isTsHost(host)) {
+        if (Sites.isTsHost(host) || Sites.isA2Host(host)) {
             const u = new URL(newUrl);
             u.searchParams.set('ts_switcher_direct', '1');
             newUrl = u.toString();
