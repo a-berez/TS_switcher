@@ -75,7 +75,7 @@ const root=path.resolve(__dirname,'..');
  assert.equal(await popup.evaluate(()=>getComputedStyle(document.querySelector('.copy-btn-ts')).backgroundColor),tsCopyColors.classic.light);checks++;
  await screenshot('Рейтинг — тёмный');
  await source.emulateMedia({colorScheme:'light'});await state('rating','rating','light');await screenshot('Рейтинг — светлый');
- for(const host of ['rating.chgk.fun','chgk.quest','elo-chgk.uk']){
+ for(const host of ['rating.chgk.fun','chgk.quest','elo-chgk.uk','a2.pecheny.me']){
   await source.goto('https://'+host+'/');await popup.emulateMedia({colorScheme:'dark'});await popup.evaluate(()=>refreshPopup());await state('rating','rating','dark');
  }
  await save({ratingColorScheme:'light'});await state('rating','rating','light');

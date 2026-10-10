@@ -13,7 +13,8 @@ const Sites = (function () {
         'rating.chgk.gg',
         'rating.chgk.fun',
         'chgk.quest',
-        'elo-chgk.uk'
+        'elo-chgk.uk',
+        'a2.pecheny.me'
     ];
 
     const ALL_HOSTS = TS_HOSTS.concat(RATING_HOSTS);
@@ -26,7 +27,8 @@ const Sites = (function () {
         'rating.chgk.gg': { name: 'Рейтинг (rating.chgk.gg)', short: '.gg', color: '#2196f3', family: 'rating' },
         'rating.chgk.fun': { name: 'Рейтинг (rating.chgk.fun)', short: '.fun', color: '#2196f3', family: 'rating' },
         'chgk.quest': { name: 'Рейтинг (chgk.quest)', short: 'quest', color: '#2196f3', family: 'rating' },
-        'elo-chgk.uk': { name: 'Рейтинг (elo-chgk.uk)', short: 'elo', color: '#2196f3', family: 'rating' }
+        'elo-chgk.uk': { name: 'Рейтинг (elo-chgk.uk)', short: 'elo', color: '#2196f3', family: 'rating' },
+        'a2.pecheny.me': { name: 'Рейтинг (a2.pecheny.me)', short: 'a2', color: '#2196f3', family: 'rating' }
     };
 
     const PAGE_TYPES = { PLAYER: 'player', TOURNAMENT: 'tournament', TEAM: 'team' };
@@ -101,7 +103,7 @@ const Sites = (function () {
             return { type: m[1], id: m[2], tail: m[3] || '' };
         }
 
-        if (host === 'elo-chgk.uk') {
+        if (host === 'elo-chgk.uk' || host === 'a2.pecheny.me') {
             const m = pathname.match(/^\/(players|teams|tournaments)\/(\d+)(\/.*)?$/);
             if (!m) return null;
             const type = m[1] === 'teams' ? PAGE_TYPES.TEAM
@@ -151,11 +153,11 @@ const Sites = (function () {
             return `/${seg}/${id}`;
         }
 
-        if (host === 'elo-chgk.uk') {
+        if (host === 'elo-chgk.uk' || host === 'a2.pecheny.me') {
             const seg = type === PAGE_TYPES.TEAM ? 'teams'
                 : type === PAGE_TYPES.PLAYER ? 'players'
                     : 'tournaments';
-            return `/${seg}/${id}`;
+            return `/${seg}/${id}` + (host === 'a2.pecheny.me' ? '/' : '');
         }
 
         return getDefaultHome(host);

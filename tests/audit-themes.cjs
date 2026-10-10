@@ -20,7 +20,7 @@ check(Theme.resolve(ts,{...defaults,tsContrast:'normal'},{contrast:'more'},{dark
 check(Theme.resolve(ts,{...defaults,tsContrast:'more'},null,{dark:false}).contrast,'more');
 check(Theme.resolve(gg,{...defaults,tsContrast:'more'},{scheme:'light'},{dark:true}).contrast,'normal');
 check(Theme.resolve(gg,defaults,{scheme:'light'},{dark:true}).scheme,'light');
-for(const host of ['rating.chgk.fun','chgk.quest','elo-chgk.uk']){
+for(const host of ['rating.chgk.fun','chgk.quest','elo-chgk.uk','a2.pecheny.me']){
  check(Theme.resolve(host,defaults,{scheme:'light'},{dark:true}).scheme,'dark');
  check(Theme.resolve(host,{...defaults,ratingColorScheme:'light'},null,{dark:true}).scheme,'light');
 }

@@ -60,16 +60,16 @@ function environment(files=[],shared) {
   const check=(actual,expected)=>{assert.deepEqual(actual,expected);positiveChecks++;};
   const e=environment(), sites=e.run('Sites'), hosts=Array.from(sites.ALL_HOSTS);
   const paths=[
-    ['/players/42','/players/42','/players/42','/players/42','/b/player/42/','/player/42','/player/42','/players/42'],
-    ['/teams/42','/teams/42','/teams/42','/teams/42','/b/team/42/','/teams/42','/team/42','/teams/42'],
-    ['/tournament/42','/tournament/42','/tournament/42','/tournament/42','/b/tournament/42/','/tournament/42','/tournament/42','/tournaments/42'],
-    ['/','/','/','/','/b/','/','/','/']];
-  for(const p of paths)for(let a=0;a<8;a++)for(let b=0;b<8;b++){
+    ['/players/42','/players/42','/players/42','/players/42','/b/player/42/','/player/42','/player/42','/players/42','/players/42/'],
+    ['/teams/42','/teams/42','/teams/42','/teams/42','/b/team/42/','/teams/42','/team/42','/teams/42','/teams/42/'],
+    ['/tournament/42','/tournament/42','/tournament/42','/tournament/42','/b/tournament/42/','/tournament/42','/tournament/42','/tournaments/42','/tournaments/42/'],
+    ['/','/','/','/','/b/','/','/','/','/']];
+  for(const p of paths)for(let a=0;a<hosts.length;a++)for(let b=0;b<hosts.length;b++){
     check(sites.hasExactPath(p[a],hosts[a],hosts[b]),true);
-    check(sites.convertPath(p[a],hosts[a],hosts[b]),p[b]+(a===4 && b<4 && p[a]!=='/b/' ? '/' : ''));
+    check(sites.convertPath(p[a],hosts[a],hosts[b]),p[b]+((a===4 || a===8) && b<4 && p[a]!=='/b/' && p[a]!=='/' ? '/' : ''));
   }
   // Modern TS tournament route, including trailing slash and subpages.
-  const tournamentTargets=['/b/tournament/13362/','/tournament/13362','/tournament/13362','/tournaments/13362'];
+  const tournamentTargets=['/b/tournament/13362/','/tournament/13362','/tournament/13362','/tournaments/13362','/tournaments/13362/'];
   for(const host of sites.TS_HOSTS)for(const input of ['/tournaments/13362','/tournaments/13362/','/tournaments/13362/results?round=2#team','/tournament/13362?round=2#team']){
     sites.RATING_HOSTS.forEach((target,index)=>{
       check(sites.hasExactPath(input,host,target),true);
@@ -85,6 +85,36 @@ function environment(files=[],shared) {
   check(sites.hasExactPath('/news',hosts[0],hosts[4]),false);
   check(sites.hasExactPath('/news',hosts[0],hosts[1]),true);
   check(sites.convertPath('/players/42?sort=rating&dir=desc&year=2026#rank',hosts[7],hosts[0]),'/players/42?year=2026#rank');
+  // A2 uses TS IDs and plural routes, with a canonical trailing slash.
+  const a2='a2.pecheny.me';
+  for(const [segment,id,ts] of [['players','28751','players'],['teams','49804','teams'],['tournaments','12826','tournament']]) {
+    for(const slash of ['', '/', '/results/']) {
+      const input=`/${segment}/${id}${slash}?x=1#rank`;
+      check(sites.hasExactPath(input,a2,hosts[0]),true);
+      check(sites.convertPath(input,a2,hosts[0]),`/${ts}/${id}${slash}?x=1#rank`);
+      check(sites.convertPath(input,a2,a2),input);
+    }
+    check(sites.convertPath(`/${ts}/${id}/results?round=2#team`,hosts[0],a2),`/${segment}/${id}/`);
+  }
+  for(const input of ['/players/','/tournaments/','/page/2/','/releases/561/','/releases/561/players/','/method/','/search/?q=test','/teams/42extra/','/player/42/']) {
+    for(const target of hosts.filter(h=>h!==a2))check(sites.hasExactPath(input,a2,target),false);
+    check(sites.hasExactPath(input,a2,a2),true);
+  }
+  for(const file of ['manifest.json','manifest-firefox.json']) {
+    const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'../src',file),'utf8'));
+    const permissions=manifest.host_permissions||manifest.permissions;
+    for(const host of hosts) {
+      check(permissions.includes(`https://${host}/*`),true);
+      check(manifest.content_scripts.some(script=>script.matches.includes(`https://${host}/*`)),true);
+    }
+  }
+  e.data.tsSwitcherSettings={preferredTsHost:'rating.pecheny.ru',visibleSwitchHosts:{'rating.chgk.gg':false},visibleCopyHosts:{'rating.pecheny.me':false}};
+  const migrated=await e.run('Settings.load()');
+  check(migrated.visibleSwitchHosts[a2],true);
+  check(migrated.visibleCopyHosts[a2],true);
+  check(migrated.visibleSwitchHosts['rating.chgk.gg'],false);
+  check(migrated.visibleCopyHosts['rating.pecheny.me'],false);
+  check(migrated.preferredTsHost,'rating.pecheny.ru');
   await e.run('Settings.setFallbackForTab(1,{failedHost:"rating.chgk.info",path:"/teams/42"})');
   check((await e.run('Settings.getFallbackForTab(1)')).path,'/teams/42');
   e.data.loadFallbacks['1'].ts=Date.now()-301000;
@@ -93,8 +123,21 @@ function environment(files=[],shared) {
   const popup=environment(['popup.js']);
   popup.state.tabUrl='https://rating.chgk.info/tournaments/13362';
   await popup.run('refreshPopup()');
+  check(popup.getElement('switch-rating-buttons').children.length,5);
+  check(popup.getElement('copy-rating-row').children.length,5);
+  await popup.run('copyUrlForHost("a2.pecheny.me")');
+  check(popup.written.pop(),'https://a2.pecheny.me/tournaments/13362/');
+  popup.state.tabUrl='https://a2.pecheny.me/teams/49804/';
+  await popup.run('refreshPopup()');
   check(popup.getElement('switch-rating-buttons').children.length,4);
+  check(popup.getElement('switch-ts-buttons').children.length,4);
+  await popup.run('copyUrlForHost("rating.chgk.info")');
+  check(popup.written.pop(),'https://rating.chgk.info/teams/49804/');
+  await popup.run('Settings.save({visibleCopyHosts:{"a2.pecheny.me":false},visibleSwitchHosts:{"a2.pecheny.me":false}})');
+  popup.state.tabUrl='https://rating.chgk.info/teams/49804';
+  await popup.run('refreshPopup()');
   check(popup.getElement('copy-rating-row').children.length,4);
+  check(popup.getElement('switch-rating-buttons').children.length,4);
   popup.state.tabUrl='https://rating.pecheny.me/teams/42?year=2026#results';
   await popup.run('refreshPopup()');
   await popup.run('copyUrlForHost("rating.pecheny.kz")');

@@ -128,7 +128,7 @@ async function rdp(port){
   await page.emulateMedia({colorScheme:'light'});
   check('gg follows page media change',await themeState(['rating','light','normal']),['rating','light','normal']);
   await options('Settings.save({ratingColorScheme:"dark"})');
-  for(const host of ['rating.chgk.fun','chgk.quest','elo-chgk.uk']){
+  for(const host of ['rating.chgk.fun','chgk.quest','elo-chgk.uk','a2.pecheny.me']){
    await navigate('https://'+host+'/');await client.evaluateAsync(popupActor,'refreshPopup()');
    check('rating manual mode on '+host,await themeState(['rating','dark','normal']),['rating','dark','normal']);
   }

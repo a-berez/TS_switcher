@@ -64,17 +64,17 @@ with tempfile.TemporaryDirectory(prefix="audit-build-", dir=ROOT / "tests") as t
     old_archive.write_bytes(b"previous release must survive")
     result = run_build(work)
     assert result.returncode == 0, result.stdout + result.stderr
-    check_packages(work, "1.0.0")
-    result = run_build(work, "v1.0.1")
+    check_packages(work, "1.1.0")
+    result = run_build(work, "v1.1.1")
     assert result.returncode == 0, result.stdout + result.stderr
-    check_packages(work, "1.0.1")
+    check_packages(work, "1.1.1")
     assert old_archive.read_bytes() == b"previous release must survive"
     for name, content in source_snapshot.items():
         assert (work / "src" / name).read_bytes() == content, f"build changed source: {name}"
     print("PASS builds preserve source manifests and previous release archives")
 
     good_archives = archives(work)
-    for version in ("0.3.5", "0.9.9", "1.0.0-beta.0", "1.0.0-beta.65536", "65536.0.0", "01.0.0", "1.0.0-rc.1", "../outside", "vv1.0.1", "", "0.0.0"):
+    for version in ("0.3.5", "0.9.9", "1.0.0-beta.0", "1.0.0-beta.65536", "65536.0.0", "01.0.0", "1.0.0-rc.1", "../outside", "vv1.1.0", "", "0.0.0"):
         result = run_build(work, version)
         assert result.returncode != 0, f"invalid/downgrade version accepted: {version!r}"
         assert archives(work) == good_archives, f"invalid version changed outputs: {version!r}"
@@ -193,7 +193,7 @@ with tempfile.TemporaryDirectory(prefix="audit-build-", dir=ROOT / "tests") as t
                         calls = work / "git-calls"
                         output.write_text("")
                         calls.write_text("")
-                        case_env = dict(ENV, COMMIT_MSG=("not a version" if state == "invalid-commit" else "v0.3.5" if state == "downgrade" else "v1.0.0"),
+                        case_env = dict(ENV, COMMIT_MSG=("not a version" if state == "invalid-commit" else "v0.3.5" if state == "downgrade" else "v1.1.0"),
                                         GITHUB_SHA="expected-sha", TAG_STATE="absent" if state == "downgrade" else state,
                                         GITHUB_OUTPUT=str(output), GIT_CALLS=str(calls))
                         result = subprocess.run([bash, "-e"], input=stub + script, cwd=work, env=case_env, capture_output=True, text=True)

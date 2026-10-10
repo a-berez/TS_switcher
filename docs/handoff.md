@@ -1,27 +1,27 @@
-# Handoff: авторизация Chrome Web Store
-Date: 2026-10-04
+# Handoff: публикация 1.1.0
+Date: 2026-10-10
 Left by: Codex
 
 ## Goal
-Завершить публикацию Chromium 1.0.0 в Chrome Web Store. GitHub Release и Firefox уже опубликованы.
+Опубликовать 1.1.0 с поддержкой рейтинга a2.pecheny.me в Chrome Web Store и Firefox Add-ons.
 
 ## Done
-Ветки слиты; тег v1.0.0 указывает на 6d6124c. AMO API подтверждает публичную версию 1.0.0. GitHub Release восстановлен отдельно из неизменённого тега, содержит четыре ZIP с проверенными digest. Workflow создаёт каталог XPI и публикует GitHub Release перед магазинами; audit-build проходит с новой регрессионной проверкой.
+Исходники, документация и ZIP 1.1.0 подготовлены. Пройдены проверки URL/UI, Chromium и изолированной сборки. Владелец разрешил коммит и публикацию в оба магазина. Remote main совпадал с локальным родителем; тега v1.1.0 перед запуском не было.
 
 ## Not done
-CWS отклонил авторизацию: неверен минимум один из client_id/client_secret/refresh_token. Секреты не менялись. Новая отправка в магазины не запускалась.
+Результаты отправки 1.1.0 в магазины ещё не подтверждены. В прошлой отправке CWS отклонил OAuth-авторизацию; метаданные секретов показывают, что их не обновляли после той попытки.
 
 ## Invariants
-Не менять тег v1.0.0 и не загружать заново уже опубликованную версию Firefox. Повтор старого workflow не применяет исправления нового main. Не выводить и не просить присылать значения секретов в чат.
+Не изменять опубликованные теги и не загружать повторно версию, уже принятую магазином. Значения секретов не выводить. Релизный workflow запускается точным сообщением коммита v1.1.0; успех AMO проверять по логу и API, поскольку шаг имеет continue-on-error.
 
 ## Where to look
-[Отчёт о выпуске](publication-readiness-2026-10-04.md), `.github/workflows/tag-from-commit.yml`, [GitHub Secrets](https://github.com/a-berez/TS_switcher/settings/secrets/actions), [GitHub Release](https://github.com/a-berez/TS_switcher/releases/tag/v1.0.0).
+`.github/workflows/tag-from-commit.yml`, `docs/status.md`, [Actions](https://github.com/a-berez/TS_switcher/actions), [GitHub Secrets](https://github.com/a-berez/TS_switcher/settings/secrets/actions).
 
 ## Verify
-После восстановления авторизации выполнить только загрузку/публикацию Chromium и проверить результат CWS. Общий статус исходного Actions run — failure; успешный статус AMO-шага там не отражает ошибку скачивания XPI из-за continue-on-error.
+Проверить завершение Actions, наличие четырёх ZIP GitHub Release, результат AMO и CWS. Успешная загрузка на проверку не равна появлению версии в публичном магазине.
 
 ## Open questions
-Нужны действующие согласованные CWS_CLIENT_ID, CWS_CLIENT_SECRET и CWS_REFRESH_TOKEN в GitHub Secrets. Какое конкретно значение отвергнуто, лог не сообщает.
+Сохранилась ли ошибка OAuth CWS; потребуется ли проверка версии магазинами.
 
 ## Next step
-Восстановить CWS OAuth-авторизацию и обновить соответствующие GitHub Secrets, затем выполнить отдельную отправку Chromium 1.0.0.
+Запустить выпуск коммитом v1.1.0 и проверить ответы обоих магазинов.
