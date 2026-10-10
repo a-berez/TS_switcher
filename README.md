@@ -11,8 +11,8 @@
 - [chgk.quest](https://chgk.quest/)
 - [elo-chgk.uk](https://elo-chgk.uk/)
 - [a2.pecheny.me](https://a2.pecheny.me/)
-- a2.pecheny.kz — зеркало A2, поддержка подготовлена до запуска
-- a2.pecheny.ru — зеркало A2, поддержка подготовлена до запуска
+- [a2.pecheny.kz](https://a2.pecheny.kz) — зеркало A2
+- [a2.pecheny.ru](https://a2.pecheny.ru) — зеркало A2
 
 ## Возможности
 
